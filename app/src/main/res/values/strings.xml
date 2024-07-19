@@ -1,3 +1,12 @@
 <resources>
     <string name="app_name">YF 博客</string>
+    <string name="base_url">http://120.26.13.9:9000</string>
+    <string name="todo">TODO</string>
+    <string name="text_statement_term">声明与条款</string>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
+    <string name="title_activity_register">RegisterActivity</string>
+    <string name="title_home">Home</string>
+    <string name="title_dashboard">Dashboard</string>
+    <string name="title_notifications">Notifications</string>
 </resources>

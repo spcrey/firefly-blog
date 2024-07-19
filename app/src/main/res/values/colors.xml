@@ -7,10 +7,15 @@
     <color name="teal_700">#FF018786</color>
     <color name="black">#FF000000</color>
     <color name="blue">#FF16B8FE</color>
+    <color name="blue_50">#FF247598</color>
     <color name="white">#FFFFFFFF</color>
     <color name="white_10">#FF454545</color>
+    <color name="white_40">#FF909090</color>
+    <color name="white_80">#FFB4B4B4</color>
+    <color name="white_60">#FF767676</color>
     <color name="white_50">#88FFFFFF</color>
     <color name="black_80">#FF313131</color>
     <color name="firefly">#FF33FFDA</color>
+    <color name="pink">#FFE1457E</color>
     <color name="none">#00000000</color>
 </resources>

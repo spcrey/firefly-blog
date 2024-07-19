@@ -3,10 +3,6 @@ package com.spcrey.blog.tools
 import com.google.gson.Gson
 import com.jakewharton.retrofit2.adapter.kotlin.coroutines.CoroutineCallAdapterFactory
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.DelicateCoroutinesApi
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
@@ -28,7 +24,7 @@ object ServerApiManager {
     private val gson = Gson()
 
     private val retrofit = Retrofit.Builder()
-        .baseUrl("http://localhost:9000")
+        .baseUrl("http://120.26.13.9:9000")
         .client(okHttpClient)
         .addConverterFactory(GsonConverterFactory.create(gson))
         .addCallAdapterFactory(CoroutineCallAdapterFactory())
@@ -40,42 +36,37 @@ object ServerApiManager {
         fun firefly(): Deferred<CommonData<String>>
 
         @Headers("content-type: application/json")
-        @POST("/user/register")
-        fun register(@Body registerBody: RegisterBody): Deferred<CommonData<String>>
+        @POST("/user/sendSms")
+        fun userSendSms(@Body form: UserSendSmsForm): Deferred<CommonData<String>>
 
         @Headers("content-type: application/json")
-        @POST("/user/login")
-        fun login(@Body loginBody: LoginBody): Deferred<CommonData<String>>
+        @POST("/user/loginByCode")
+        fun userLoginByCode(@Body form: UserLoginByCodeForm): Deferred<CommonData<String>>
 
         @Headers("content-type: application/json")
         @GET("/user/info")
-        fun info(@Header("Authorization") token: String): Deferred<CommonData<UserInfo>>
+        fun userInfo(@Header("Authorization") token: String): Deferred<CommonData<UserInfo>>
+
+        @Headers("content-type: application/json")
+        @POST("/user/loginByPassword")
+        fun userLoginByPassword(@Body form: UserLoginByPasswordForm): Deferred<CommonData<String>>
     }
 
     val apiService: ApiService = retrofit.create(ApiService::class.java)
 
     data class CommonData<T>(val code: Int, val message: String, val data: T)
 
-    data class RegisterBody(val username: String, val password: String, val rePassword: String)
-    data class LoginBody(val username: String, val password: String)
+    data class UserSendSmsForm(val phoneNumber: String)
+
+    data class UserLoginByCodeForm(val phoneNumber: String, val code: String)
+
+    data class UserLoginByPasswordForm(val phoneNumber: String, val password: String)
+
     data class UserInfo(
-        val id: Int, val username: String, val nickname: String, val email: String, val userPic: String,
+        val id: Int, val phoneNumber: String?,
+        val nickname: String?, val email: String?, val personalSignature: String?,
+        val avatarUrl: String?,
+        val isFollowed: Boolean?, val isFollower: Boolean?,
         val createTime: String, val updateTime: String
     )
-
-    @JvmStatic
-    fun main(args: Array<String>) {
-        println("Hello World!")
-        val token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGFpbXMiOnsiaWQiOjEsInVzZXJuYW1lIjoic3BjcmV5In0sImV4cCI6MTcxOTA3MzQ5N30.F-XKud8M7DVARBYnj2LgGpsB2mR0rUtcKAQIuD3k8Wc"
-
-        runBlocking {
-            try {
-                val requestBody = LoginBody("spcrey", "crey199854")
-                val data = apiService.info("").await()
-                println(data)
-            } catch (e: Exception) {
-                println(e.message)
-            }
-        }
-    }
 }

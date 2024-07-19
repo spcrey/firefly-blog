@@ -13,7 +13,18 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Blog"
+        android:usesCleartextTraffic="true"
         tools:targetApi="31">
+        <activity
+            android:name=".RegisterActivity"
+            android:exported="false"
+            android:label="@string/title_activity_register" />
+        <activity
+            android:name=".LoginByPasswordActivity"
+            android:exported="false" />
+        <activity
+            android:name=".LoginByCodeActivity"
+            android:exported="false" />
         <activity
             android:name=".PageActivity"
             android:exported="false" />
@@ -29,8 +40,7 @@
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.Blog"></activity>
+            android:label="@string/app_name" />
     </application>
 
 </manifest>

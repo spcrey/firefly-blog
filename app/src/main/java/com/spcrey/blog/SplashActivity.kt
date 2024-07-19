@@ -37,6 +37,7 @@ class SplashActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "SplashActivity"
     }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -112,7 +113,7 @@ class SplashActivity : AppCompatActivity() {
         }
         private fun setForegroundColorSpan(linkSpannableText: LinkSpannableText) {
             spannableString.setSpan(
-                ForegroundColorSpan(context.getColor(R.color.blue)),
+                ForegroundColorSpan(context.getColor(R.color.firefly)),
                 linkSpannableText.posStart, linkSpannableText.posEnd,
                 Spannable.SPAN_COMPOSING
             )
