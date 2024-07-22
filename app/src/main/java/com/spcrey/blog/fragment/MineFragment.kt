@@ -6,7 +6,10 @@ import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
 import android.widget.TextView
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.CircleCrop
 import com.spcrey.blog.LoginByCodeActivity
 import com.spcrey.blog.R
 import com.spcrey.blog.UpdateInfoActivity
@@ -62,6 +65,10 @@ class MineFragment : Fragment() {
         view.findViewById<View>(R.id.btn_login)
     }
 
+    private val imageAvatar by lazy {
+        view.findViewById<ImageView>(R.id.img_avatar)
+    }
+
     private val textLogin by lazy {
         view.findViewById<TextView>(R.id.text_login)
     }
@@ -78,6 +85,10 @@ class MineFragment : Fragment() {
         this.view = view
         EventBus.getDefault().register(this)
         CachedData.userInfo?.let { it ->
+            Glide.with(requireContext())
+                .load(it.avatarUrl)
+                .transform(CircleCrop())
+                .into(imageAvatar)
             if (it.nickname == null) {
                 textNickname.text = "未命名"
             } else {
@@ -118,7 +129,12 @@ class MineFragment : Fragment() {
                 textNickname.text = it.nickname
             }
             textFanNum.text = it.phoneNumber
+            Glide.with(requireContext())
+                .load(it.avatarUrl)
+                .transform(CircleCrop())
+                .into(imageAvatar)
         }
+
         textLogin.text = "修改信息"
         status = Status.LOGIN
     }
@@ -130,6 +146,7 @@ class MineFragment : Fragment() {
         textNickname.text = "请先登录"
         textFanNum.text = "点击头像去登陆"
         textLogin.text = "登录"
+        imageAvatar.setImageResource(R.drawable.circle_shape)
         status = Status.NOT_LOGIN
     }
 

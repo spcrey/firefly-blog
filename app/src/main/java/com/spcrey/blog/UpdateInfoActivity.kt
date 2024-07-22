@@ -41,6 +41,7 @@ import org.greenrobot.eventbus.EventBus
 import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
+import java.util.Base64
 import java.util.UUID
 
 class UpdateInfoActivity : AppCompatActivity() {
@@ -73,51 +74,46 @@ class UpdateInfoActivity : AppCompatActivity() {
             val localPath = filePath?.let { getRealPath(this, it) }
             Log.d(TAG, "FilePath: ${filePath?.path}")
             Log.d(TAG, "LocalFilePath: $localPath")
-            // uploadImage(filePath)
             Glide.with(this)
                 .load(filePath)
                 .transform(CircleCrop())
                 .into(imageAvatar)
+            val file = localPath?.let {
+                File(it)
+            }
+            if (file != null) {
+                if (file.exists()) {
+//                    Toast.makeText(this, "文件存在", Toast.LENGTH_SHORT).show()
+                }
+            }
 
-            val endpoint = "https://oss-cn-beijing.aliyuncs.com"
-            val accessKeyId = ""
-            val accessKeySecret = ""
-
-            val ossCredentialProvider = OSSPlainTextAKSKCredentialProvider(
-                accessKeyId, accessKeySecret);
-            val fileName = "${UUID.randomUUID()}.jpg"
-            Log.d(TAG, "fileName: $fileName")
-            val oss = OSSClient(applicationContext, endpoint, ossCredentialProvider);
-            val file = File(localPath!!)
-            val inputStream = FileInputStream(file)
-            val byteBuffer = inputStream.readBytes()
-            inputStream.close()
-            val put = PutObjectRequest("ffid", fileName, byteBuffer, ObjectMetadata())
-//            put.setProgressCallback { request, currentSize, totalSize ->
-//                Log.d(TAG, "currentSize = $currentSize" + " totalSize = $totalSize")
-//            }
-
-            val ossAsyncTask: OSSAsyncTask<PutObjectResult> = oss.asyncPutObject(put,
-                object : OSSCompletedCallback<PutObjectRequest, PutObjectResult> {
-                    override fun onSuccess(request: PutObjectRequest?, result: PutObjectResult?) {
-                        val objectKey = request?.objectKey ?: ""
-                        val ossBaseUrl = "https://oss-cn-beijing.aliyuncs.com" // 替换成你的 OSS Endpoint
-                        val imageUrl = "$ossBaseUrl/$objectKey"
-                        Log.d(TAG, imageUrl)
-                        runOnUiThread {
-                            Toast.makeText(this@UpdateInfoActivity, "上传成功", Toast.LENGTH_SHORT).show()
+            val fileBytes = FileInputStream(file).readBytes()
+            val fileBase64 = Base64.getEncoder().encodeToString(fileBytes)
+            lifecycleScope.launch {
+                withContext(Dispatchers.IO) {
+                    try {
+                        val commonData =
+                            ServerApiManager.apiService.userUpdateAvatar(
+                                CachedData.token!!,
+                                ServerApiManager.UserUpdateAvatarForm(fileBase64)).await()
+                        Log.d(TAG, commonData.toString())
+                        if (commonData.code == 1) {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(this@UpdateInfoActivity, "上传成功", Toast.LENGTH_SHORT).show()
+                            }
+                        } else {
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(this@UpdateInfoActivity, "上传失败", Toast.LENGTH_SHORT).show()
+                            }
                         }
-
+                    } catch (e: Exception) {
+                        Log.d(TAG, "request failed: ${e.message}")
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@UpdateInfoActivity, "上传失败", Toast.LENGTH_SHORT).show()
+                        }
                     }
-
-                    override fun onFailure(
-                        request: PutObjectRequest?,
-                        clientException: ClientException?,
-                        serviceException: ServiceException?
-                    ) {
-                        Log.e(TAG, "OSS Upload Failed: ${clientException?.message ?: serviceException?.rawMessage}")
-                    }
-                })
+                }
+            }
         }
     }
 
@@ -160,6 +156,11 @@ class UpdateInfoActivity : AppCompatActivity() {
             insets
         }
         val sharedPreferences = getSharedPreferences("user", MODE_PRIVATE)
+        Glide.with(this)
+            .load(CachedData.userInfo?.avatarUrl)
+            .transform(CircleCrop())
+            .into(imageAvatar)
+
         imageAvatar.setOnClickListener {
             val intent = Intent()
             intent.type = "image/*"

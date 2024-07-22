@@ -77,15 +77,27 @@ object ServerApiManager {
         @Headers("content-type: application/json")
         @POST("/article/unlike")
         fun articleUnlike(@Header("Authorization") token: String, @Body form: ArticleLikeForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/user/updateAvatar")
+        fun userUpdateAvatar(@Header("Authorization") token: String, @Body form: UserUpdateAvatarForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/article/add")
+        fun articleAdd(@Header("Authorization") token: String, @Body form: ArticleAddForm): Deferred<CommonData<String>>
     }
 
     val apiService: ApiService = retrofit.create(ApiService::class.java)
+
+    data class ArticleAddForm(val content: String, val imageUrls: MutableList<String>)
 
     data class CommonData<T>(val code: Int, val message: String, val data: T)
 
     data class UserSendSmsForm(val phoneNumber: String)
 
     data class UserLoginByCodeForm(val phoneNumber: String, val code: String)
+
+    data class UserUpdateAvatarForm(val avatarUrl: String)
 
     data class UserLoginByPasswordForm(val phoneNumber: String, val password: String)
 
@@ -101,7 +113,7 @@ object ServerApiManager {
         val id: Int, val content: String, val userID: Int, val createTime: String,
         val imageUrls: List<String>,
         val userNickname: String, val userAvatarUrl: String,
-        var likeCount: Int, var likeStatus: Boolean?, val conmentCount: Int
+        var likeCount: Int, var likeStatus: Boolean?, val commentCount: Int
     )
 
     data class ArticleList(val total: Int, val items: List<Article>)

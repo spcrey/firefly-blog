@@ -1,18 +1,31 @@
 package com.spcrey.blog.fragment
 
+import android.content.Context
+import android.graphics.Bitmap
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.FrameLayout
+import android.widget.GridLayout
 import android.widget.ImageView
+import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+import com.bumptech.glide.Glide
+import com.bumptech.glide.load.resource.bitmap.CenterCrop
+import com.bumptech.glide.load.resource.bitmap.CircleCrop
+import com.bumptech.glide.load.resource.bitmap.RoundedCorners
+import com.bumptech.glide.request.target.CustomTarget
+import com.bumptech.glide.request.transition.Transition
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.module.LoadMoreModule
 import com.chad.library.adapter.base.viewholder.BaseViewHolder
@@ -21,6 +34,7 @@ import com.spcrey.blog.RegisterActivity
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.ServerApiManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.greenrobot.eventbus.EventBus
@@ -70,8 +84,66 @@ class HomePageFragment : Fragment() {
             1, StaggeredGridLayoutManager.VERTICAL
         )
 
+        swipeRefreshLayout.setOnRefreshListener {
+            lifecycleScope.launch {
+                withContext(Dispatchers.IO) {
+                    try {
+                        val token: String = CachedData.token?: ""
+                        CachedData.currentPageNum = 1
+                        val commonData = ServerApiManager.apiService.articleList(
+                            token,
+                            ServerApiManager.ArticleListForm(10, CachedData.currentPageNum)
+                        ).await()
+                        CachedData.articles.clear()
+                        CachedData.articles.addAll(commonData.data.items)
+                        CachedData.articles.shuffle()
+                        withContext(Dispatchers.Main) {
+                            articleAdapter.notifyDataSetChanged()
+                            swipeRefreshLayout.isRefreshing = false
+                            articleAdapter.loadMoreModule.loadMoreComplete()
+                        }
+                    } catch (e: Exception) {
+                        Log.d(TAG, "error: ${e.message}")
+                        withContext(Dispatchers.Main) {
+                            swipeRefreshLayout.isRefreshing = false
+                        }
+                    }
+                }
+            }
+        }
+
         articleAdapter.loadMoreModule.isAutoLoadMore = true
         articleAdapter.loadMoreModule.isEnableLoadMoreIfNotFullPage = true
+        articleAdapter.loadMoreModule.setOnLoadMoreListener {
+            lifecycleScope.launch {
+                withContext(Dispatchers.IO) {
+                    val token: String = CachedData.token?: ""
+                    try {
+                        delay(1000)
+                        val commonData = ServerApiManager.apiService.articleList(
+                            token,
+                            ServerApiManager.ArticleListForm(10, CachedData.currentPageNum + 1)
+                        ).await()
+                        if (commonData.code == 1) {
+                            if (commonData.data.items.isNotEmpty()) {
+                                withContext(Dispatchers.Main) {
+                                    CachedData.articles.addAll(commonData.data.items)
+                                    articleAdapter.notifyDataSetChanged()
+                                    articleAdapter.loadMoreModule.loadMoreComplete()
+                                }
+                                CachedData.currentPageNum += 1
+                            } else {
+                                withContext(Dispatchers.Main) {
+                                    articleAdapter.loadMoreModule.loadMoreEnd()
+                                }
+                            }
+                        }
+                    } catch (e: Exception){
+                        Log.d(TAG, "error: ${e.message}")
+                    }
+                }
+            }
+        }
         recyclerView.adapter = articleAdapter
         articleAdapter.setIcLikeOnClickListener(object : ArticleAdapter.IcLikeOnClickListener{
             override fun onClick(id: Int, position: Int, status: Boolean?) {
@@ -128,6 +200,10 @@ class HomePageFragment : Fragment() {
         BaseQuickAdapter<ServerApiManager.Article, BaseViewHolder>(R.layout.item_article, data),
         LoadMoreModule {
 
+        fun Context.dpToPx(dp: Int): Int {
+            return (dp * resources.displayMetrics.density).toInt()
+        }
+
         interface IcLikeOnClickListener {
             fun onClick(id: Int, position: Int, status: Boolean?)
         }
@@ -138,6 +214,11 @@ class HomePageFragment : Fragment() {
             icLikeOnClickListener = listener
         }
         override fun convert(holder: BaseViewHolder, item: ServerApiManager.Article) {
+            val imgUserAvatar = holder.getView<ImageView>(R.id.img_user_avatar)
+            Glide.with(context)
+                .load(item.userAvatarUrl)
+                .transform(CircleCrop())
+                .into(imgUserAvatar)
             val textUserNickname = holder.getView<TextView>(R.id.text_user_nickname)
             val textContent = holder.getView<TextView>(R.id.text_content)
             textUserNickname.text = item.userNickname
@@ -158,8 +239,84 @@ class HomePageFragment : Fragment() {
                 textLikeCount.text = "点赞"
             }
             val textCommentCount = holder.getView<TextView>(R.id.text_comment_count)
-            if (item.conmentCount > 0) {
-                textCommentCount.text = item.conmentCount.toString()
+            if (item.commentCount > 0) {
+                textCommentCount.text = item.commentCount.toString()
+            }
+            val fragmentImages = holder.getView<FrameLayout>(R.id.fragment_images)
+            fragmentImages.removeAllViews()
+            val imageUrls = item.imageUrls
+            if (imageUrls.size == 1) {
+                val imageUrl = imageUrls[0]
+                val img = ImageView(context).apply {
+                    id = View.generateViewId()
+                }
+                val height = context.dpToPx(216)
+                val layoutParams = ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.MATCH_PARENT, height)
+                layoutParams.topMargin = context.dpToPx(9)
+                img.layoutParams = layoutParams
+                Glide.with(context)
+                    .asBitmap()
+                    .load(imageUrl)
+                    .transform(CenterCrop(), RoundedCorners(context.dpToPx(4)))
+                    .into(img)
+                fragmentImages.addView(img)
+//                    .into(object : CustomTarget<Bitmap>(){
+//                        override fun onResourceReady(
+//                            resource: Bitmap,
+//                            transition: Transition<in Bitmap>?
+//                        ) {
+//                            val width = resource.width
+//                            val height = resource.height
+//                            val aspectRatio = width.toFloat() / height.toFloat()
+//                            val desiredHeight = ((context.resources.displayMetrics.widthPixels-context.dpToPx(48)) / aspectRatio).toInt()
+//                            img.setImageBitmap(resource)
+//                            val layoutParams = ConstraintLayout.LayoutParams(
+//                                ConstraintLayout.LayoutParams.MATCH_PARENT,
+//                                desiredHeight
+//                            )
+//                            layoutParams.topMargin = context.dpToPx(12)
+//                            layoutParams.bottomMargin = context.dpToPx(0)
+//                            layoutParams.marginStart = context.dpToPx(0)
+//                            layoutParams.marginEnd = context.dpToPx(0)
+//                            img.setPadding(0,0,0,0)
+//                            img.layoutParams = layoutParams
+//                            fragmentImages.addView(img)
+//                        }
+//
+//                        override fun onLoadCleared(placeholder: Drawable?) {
+//                        }
+//                    })
+            }
+
+            if (imageUrls.size > 1) {
+                val gridLayoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+                gridLayoutParams.topMargin = context.dpToPx(12)
+                val gridLayout = GridLayout(context).apply {
+                    layoutParams = gridLayoutParams
+                    columnCount = 3
+                }
+                for (i in 0..<item.imageUrls.size) {
+                    val imageView = ImageView(context).apply {
+                        id = View.generateViewId()
+                    }
+                    val length = ((context.resources.displayMetrics.widthPixels - context.dpToPx(64)) / 3).toInt()
+                    val layoutParams = ConstraintLayout.LayoutParams(length, length)
+                    if (i%3 != 0) {
+                        layoutParams.marginStart = context.dpToPx(9)
+                    }
+                    if (i >= 3) {
+                        layoutParams.topMargin = context.dpToPx(9)
+                    }
+                    imageView.layoutParams = layoutParams
+
+                    Glide.with(context)
+                        .asBitmap()
+                        .load(item.imageUrls[i])
+                        .transform(CenterCrop(), RoundedCorners(context.dpToPx(4)))
+                        .into(imageView)
+                    gridLayout.addView(imageView)
+                }
+                fragmentImages.addView(gridLayout)
             }
         }
     }

@@ -1,6 +1,7 @@
 package com.spcrey.blog
 
 import android.content.Context
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
@@ -49,6 +50,12 @@ class PageActivity : AppCompatActivity() {
         val textMessageList = findViewById<TextView>(R.id.text_message_list)
         val textMine = findViewById<TextView>(R.id.text_mine)
         val sharedPreferences = getSharedPreferences("user", Context.MODE_PRIVATE)
+        val icArticleAdd = findViewById<ImageView>(R.id.ic_article_add)
+
+        icArticleAdd.setOnClickListener {
+            val intent = Intent(this, ArticleAddActivity::class.java)
+            startActivity(intent)
+        }
 
         CachedData.token = sharedPreferences.getString("token", null)
 
