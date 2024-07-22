@@ -80,8 +80,8 @@ class UpdateInfoActivity : AppCompatActivity() {
                 .into(imageAvatar)
 
             val endpoint = "https://oss-cn-beijing.aliyuncs.com"
-            val accessKeyId = "LTAI5tC9pkLZiEespKm773g7"
-            val accessKeySecret = "U82UKbvPZZ2cnF44TH69P885TL8f7k"
+            val accessKeyId = ""
+            val accessKeySecret = ""
 
             val ossCredentialProvider = OSSPlainTextAKSKCredentialProvider(
                 accessKeyId, accessKeySecret);

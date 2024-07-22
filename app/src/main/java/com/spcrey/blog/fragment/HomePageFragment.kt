@@ -1,10 +1,15 @@
 package com.spcrey.blog.fragment
 
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.ImageView
+import android.widget.TextView
+import android.widget.Toast
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -12,8 +17,16 @@ import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.module.LoadMoreModule
 import com.chad.library.adapter.base.viewholder.BaseViewHolder
 import com.spcrey.blog.R
+import com.spcrey.blog.RegisterActivity
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.ServerApiManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import org.greenrobot.eventbus.EventBus
+import org.greenrobot.eventbus.Subscribe
+import org.greenrobot.eventbus.ThreadMode
+import org.w3c.dom.Text
 
 // TODO: Rename parameter arguments, choose names that match
 // the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
@@ -34,11 +47,16 @@ class HomePageFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
     }
+    val articleAdapter by lazy {
+        ArticleAdapter(CachedData.articles)
+    }
+
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
     ): View? {
+        EventBus.getDefault().register(this)
         // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_home_page, container, false)
     }
@@ -52,18 +70,109 @@ class HomePageFragment : Fragment() {
             1, StaggeredGridLayoutManager.VERTICAL
         )
 
-        val articleAdapter = ArticleAdapter(CachedData.articles)
         articleAdapter.loadMoreModule.isAutoLoadMore = true
         articleAdapter.loadMoreModule.isEnableLoadMoreIfNotFullPage = true
         recyclerView.adapter = articleAdapter
+        articleAdapter.setIcLikeOnClickListener(object : ArticleAdapter.IcLikeOnClickListener{
+            override fun onClick(id: Int, position: Int, status: Boolean?) {
+                if (status == null) {
+                    Toast.makeText(context, "请先登录", Toast.LENGTH_SHORT).show()
+                } else if (status==true) {
+                    lifecycleScope.launch {
+                        withContext(Dispatchers.IO) {
+                            try {
+                                val commonData = ServerApiManager.apiService.articleUnlike(
+                                    CachedData.token!!,
+                                    ServerApiManager.ArticleLikeForm(id)
+                                ).await()
+                                if (commonData.code==1) {
+                                    withContext(Dispatchers.Main) {
+                                        val data = articleAdapter.getItem(position)
+                                        data.likeStatus = false
+                                        data.likeCount -= 1
+                                        articleAdapter.notifyDataSetChanged()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.d(TAG, "request failed: ${e.message}")
+                            }
+                        }
+                    }
+                }else {
+                    lifecycleScope.launch {
+                        withContext(Dispatchers.IO) {
+                            try {
+                                val commonData = ServerApiManager.apiService.articleLike(
+                                    CachedData.token!!,
+                                    ServerApiManager.ArticleLikeForm(id)
+                                ).await()
+                                if (commonData.code==1) {
+                                    withContext(Dispatchers.Main) {
+                                        val data = articleAdapter.getItem(position)
+                                        data.likeStatus = true
+                                        data.likeCount += 1
+                                        articleAdapter.notifyDataSetChanged()
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                Log.d(TAG, "request failed: ${e.message}")
+                            }
+                        }
+                    }
+                }
+            }
+        })
     }
 
     class ArticleAdapter(data: MutableList<ServerApiManager.Article>):
         BaseQuickAdapter<ServerApiManager.Article, BaseViewHolder>(R.layout.item_article, data),
         LoadMoreModule {
-        override fun convert(holder: BaseViewHolder, item: ServerApiManager.Article) {
 
+        interface IcLikeOnClickListener {
+            fun onClick(id: Int, position: Int, status: Boolean?)
+        }
+
+        private var icLikeOnClickListener: IcLikeOnClickListener? = null
+
+        fun setIcLikeOnClickListener(listener: IcLikeOnClickListener) {
+            icLikeOnClickListener = listener
+        }
+        override fun convert(holder: BaseViewHolder, item: ServerApiManager.Article) {
+            val textUserNickname = holder.getView<TextView>(R.id.text_user_nickname)
+            val textContent = holder.getView<TextView>(R.id.text_content)
+            textUserNickname.text = item.userNickname
+            textContent.text = item.content
+            val icLike = holder.getView<ImageView>(R.id.ic_like)
+            if (item.likeStatus != null && item.likeStatus == true) {
+                icLike.setImageResource(R.drawable.ic_like)
+            } else {
+                icLike.setImageResource(R.drawable.ic_nolike)
+            }
+            icLike.setOnClickListener{
+                icLikeOnClickListener?.onClick(item.id, holder.layoutPosition, item.likeStatus)
+            }
+            val textLikeCount = holder.getView<TextView>(R.id.text_like_count)
+            if (item.likeCount > 0) {
+                textLikeCount.text = item.likeCount.toString()
+            } else {
+                textLikeCount.text = "点赞"
+            }
+            val textCommentCount = holder.getView<TextView>(R.id.text_comment_count)
+            if (item.conmentCount > 0) {
+                textCommentCount.text = item.conmentCount.toString()
+            }
         }
     }
 
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    fun onDataLoad(event:  DataLoadEvent) {
+        articleAdapter.notifyDataSetChanged()
+    }
+
+    class DataLoadEvent
+
+    override fun onDestroy() {
+        super.onDestroy()
+        EventBus.getDefault().unregister(this)
+    }
 }

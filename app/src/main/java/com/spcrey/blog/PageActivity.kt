@@ -21,6 +21,7 @@ import com.spcrey.blog.tools.ServerApiManager.ArticleListForm
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.greenrobot.eventbus.EventBus
 
 class PageActivity : AppCompatActivity() {
 
@@ -74,6 +75,7 @@ class PageActivity : AppCompatActivity() {
                         }
                         val commonData = ServerApiManager.apiService.articleList(t, ArticleListForm(10, 1)).await()
                         CachedData.articles.addAll(commonData.data.items)
+                        EventBus.getDefault().post(HomePageFragment.DataLoadEvent())
                         Log.d(TAG, "article: ${CachedData.articles.toString()}")
                     } catch (e: Exception) {
                         Log.d(TAG, "request failed: ${e.message}")

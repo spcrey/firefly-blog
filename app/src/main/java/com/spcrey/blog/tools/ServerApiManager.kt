@@ -69,6 +69,14 @@ object ServerApiManager {
         @Headers("content-type: application/json")
         @POST("/article/list")
         fun articleList(@Header("Authorization") token: String="", @Body form: ArticleListForm): Deferred<CommonData<ArticleList>>
+
+        @Headers("content-type: application/json")
+        @POST("/article/like")
+        fun articleLike(@Header("Authorization") token: String, @Body form: ArticleLikeForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/article/unlike")
+        fun articleUnlike(@Header("Authorization") token: String, @Body form: ArticleLikeForm): Deferred<CommonData<String>>
     }
 
     val apiService: ApiService = retrofit.create(ApiService::class.java)
@@ -87,11 +95,13 @@ object ServerApiManager {
 
     data class ArticleListForm(val pageSize: Int, val pageNum: Int)
 
+    data class ArticleLikeForm(val id: Int)
+
     data class Article(
         val id: Int, val content: String, val userID: Int, val createTime: String,
         val imageUrls: List<String>,
         val userNickname: String, val userAvatarUrl: String,
-        val likeCount: Int, val likeStatus: Boolean, val conmentCount: Int
+        var likeCount: Int, var likeStatus: Boolean?, val conmentCount: Int
     )
 
     data class ArticleList(val total: Int, val items: List<Article>)
