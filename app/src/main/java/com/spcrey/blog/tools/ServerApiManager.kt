@@ -12,6 +12,9 @@ import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.Headers
 import retrofit2.http.POST
+import retrofit2.http.Query
+import java.time.LocalDateTime
+import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 
 object ServerApiManager {
@@ -50,6 +53,22 @@ object ServerApiManager {
         @Headers("content-type: application/json")
         @POST("/user/loginByPassword")
         fun userLoginByPassword(@Body form: UserLoginByPasswordForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/user/register")
+        fun userRegister(@Body form: UserRegisterForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/user/logout")
+        fun userLogout(@Header("Authorization") token: String): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/user/update")
+        fun userUpdate(@Header("Authorization") token: String, @Body form: UserUpdateForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/article/list")
+        fun articleList(@Header("Authorization") token: String="", @Body form: ArticleListForm): Deferred<CommonData<ArticleList>>
     }
 
     val apiService: ApiService = retrofit.create(ApiService::class.java)
@@ -62,9 +81,24 @@ object ServerApiManager {
 
     data class UserLoginByPasswordForm(val phoneNumber: String, val password: String)
 
+    data class UserRegisterForm(val phoneNumber: String, val password: String, val rePassword: String)
+
+    data class UserUpdateForm(var nickname: String?=null, var email: String?=null, var personalSignature: String?=null)
+
+    data class ArticleListForm(val pageSize: Int, val pageNum: Int)
+
+    data class Article(
+        val id: Int, val content: String, val userID: Int, val createTime: String,
+        val imageUrls: List<String>,
+        val userNickname: String, val userAvatarUrl: String,
+        val likeCount: Int, val likeStatus: Boolean, val conmentCount: Int
+    )
+
+    data class ArticleList(val total: Int, val items: List<Article>)
+
     data class UserInfo(
         val id: Int, val phoneNumber: String?,
-        val nickname: String?, val email: String?, val personalSignature: String?,
+        var nickname: String?, var email: String?, var personalSignature: String?,
         val avatarUrl: String?,
         val isFollowed: Boolean?, val isFollower: Boolean?,
         val createTime: String, val updateTime: String

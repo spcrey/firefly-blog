@@ -17,6 +17,7 @@ import com.spcrey.blog.fragment.MessageListFragment
 import com.spcrey.blog.fragment.MineFragment
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.ServerApiManager
+import com.spcrey.blog.tools.ServerApiManager.ArticleListForm
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -63,15 +64,31 @@ class PageActivity : AppCompatActivity() {
             }
         }
 
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                    try {;
+                        val t: String = if (CachedData.token==null){
+                            ""
+                        } else {
+                            CachedData.token!!
+                        }
+                        val commonData = ServerApiManager.apiService.articleList(t, ArticleListForm(10, 1)).await()
+                        CachedData.articles.addAll(commonData.data.items)
+                        Log.d(TAG, "article: ${CachedData.articles.toString()}")
+                    } catch (e: Exception) {
+                        Log.d(TAG, "request failed: ${e.message}")
+                    }
+            }
+        }
+
         supportFragmentManager.beginTransaction()
             .setReorderingAllowed(true)
             .add(
                 R.id.fragment_content,
                 HomePageFragment::class.java,
                 null,
-                "TAG_FRAGMENT"
-            )
-            .commit()
+                TAG
+            ).commit()
 
         bgHomePage.setOnClickListener {
             textTitleBar.text = "主页"

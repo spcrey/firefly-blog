@@ -9,6 +9,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import com.spcrey.blog.LoginByCodeActivity
 import com.spcrey.blog.R
+import com.spcrey.blog.UpdateInfoActivity
 import com.spcrey.blog.tools.CachedData
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
@@ -30,9 +31,15 @@ class MineFragment : Fragment() {
         private const val TAG = "MineFragment"
     }
 
+    enum class Status {
+        LOGIN, NOT_LOGIN
+    }
+
     // TODO: Rename and change types of parameters
     private var param1: String? = null
     private var param2: String? = null
+
+    private var status = Status.NOT_LOGIN
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +61,11 @@ class MineFragment : Fragment() {
     private val btnLogin by lazy {
         view.findViewById<View>(R.id.btn_login)
     }
+
+    private val textLogin by lazy {
+        view.findViewById<TextView>(R.id.text_login)
+    }
+
     private val textNickname by lazy {
         view.findViewById<TextView>(R.id.text_nickname)
     }
@@ -72,11 +84,23 @@ class MineFragment : Fragment() {
                 textNickname.text = it.nickname
             }
             textFanNum.text = it.phoneNumber
+            textLogin.text = "修改信息"
+            status = Status.LOGIN
+        }?: run {
         }
 
         btnLogin.setOnClickListener {
-            val intent = Intent(context, LoginByCodeActivity::class.java)
-            startActivity(intent)
+            when(status) {
+                Status.LOGIN -> {
+                    val intent = Intent(context, UpdateInfoActivity::class.java)
+                    startActivity(intent)
+                }
+                Status.NOT_LOGIN -> {
+                    val intent = Intent(context, LoginByCodeActivity::class.java)
+                    startActivity(intent)
+                }
+            }
+
         }
     }
 
@@ -95,7 +119,33 @@ class MineFragment : Fragment() {
             }
             textFanNum.text = it.phoneNumber
         }
+        textLogin.text = "修改信息"
+        status = Status.LOGIN
     }
 
     class LoginEvent
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    fun onLogoutEvent(event:  LogoutEvent) {
+        textNickname.text = "请先登录"
+        textFanNum.text = "点击头像去登陆"
+        textLogin.text = "登录"
+        status = Status.NOT_LOGIN
+    }
+
+    class LogoutEvent
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    fun update(event:  Update) {
+        CachedData.userInfo?.let { it ->
+            if (it.nickname == null) {
+                textNickname.text = "未命名"
+            } else {
+                textNickname.text = it.nickname
+            }
+            textFanNum.text = it.phoneNumber
+        }
+    }
+
+    class Update
 }
