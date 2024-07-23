@@ -1,6 +1,7 @@
 package com.spcrey.blog.fragment
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Bitmap
 import android.graphics.drawable.Drawable
 import android.os.Bundle
@@ -29,8 +30,10 @@ import com.bumptech.glide.request.transition.Transition
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.module.LoadMoreModule
 import com.chad.library.adapter.base.viewholder.BaseViewHolder
+import com.spcrey.blog.CommentActivity
 import com.spcrey.blog.R
 import com.spcrey.blog.RegisterActivity
+import com.spcrey.blog.UserInfoActivity
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.ServerApiManager
 import kotlinx.coroutines.Dispatchers
@@ -145,6 +148,24 @@ class HomePageFragment : Fragment() {
             }
         }
         recyclerView.adapter = articleAdapter
+
+        articleAdapter.setUserOnClickListener(object : ArticleAdapter.UserOnClickListener{
+            override fun onClick(userId: Int) {
+
+                val intent = Intent(context, UserInfoActivity::class.java)
+                intent.putExtra("userId", userId)
+                startActivity(intent)
+            }
+        })
+
+        articleAdapter.setIcCommentOnClickListener(object : ArticleAdapter.IcCommentOnClickListener{
+            override fun onClick(id: Int) {
+                val intent = Intent(context, CommentActivity::class.java)
+                intent.putExtra("id", id)
+                startActivity(intent)
+            }
+        })
+
         articleAdapter.setIcLikeOnClickListener(object : ArticleAdapter.IcLikeOnClickListener{
             override fun onClick(id: Int, position: Int, status: Boolean?) {
                 if (status == null) {
@@ -208,18 +229,45 @@ class HomePageFragment : Fragment() {
             fun onClick(id: Int, position: Int, status: Boolean?)
         }
 
+        interface IcCommentOnClickListener {
+            fun onClick(id: Int)
+        }
+
+        interface UserOnClickListener {
+            fun onClick(userId: Int)
+        }
+
         private var icLikeOnClickListener: IcLikeOnClickListener? = null
+
+        private var icCommentOnClickListener: IcCommentOnClickListener? = null
+
+        private var userOnClickListener: UserOnClickListener? = null
 
         fun setIcLikeOnClickListener(listener: IcLikeOnClickListener) {
             icLikeOnClickListener = listener
         }
+
+        fun setIcCommentOnClickListener(listener: IcCommentOnClickListener) {
+            icCommentOnClickListener = listener
+        }
+
+        fun setUserOnClickListener(listener: UserOnClickListener) {
+            userOnClickListener = listener
+        }
+
         override fun convert(holder: BaseViewHolder, item: ServerApiManager.Article) {
             val imgUserAvatar = holder.getView<ImageView>(R.id.img_user_avatar)
             Glide.with(context)
                 .load(item.userAvatarUrl)
                 .transform(CircleCrop())
                 .into(imgUserAvatar)
+            imgUserAvatar.setOnClickListener {
+                userOnClickListener?.onClick(item.userId)
+            }
             val textUserNickname = holder.getView<TextView>(R.id.text_user_nickname)
+            textUserNickname.setOnClickListener {
+                userOnClickListener?.onClick(item.userId)
+            }
             val textContent = holder.getView<TextView>(R.id.text_content)
             textUserNickname.text = item.userNickname
             textContent.text = item.content
@@ -229,7 +277,8 @@ class HomePageFragment : Fragment() {
             } else {
                 icLike.setImageResource(R.drawable.ic_nolike)
             }
-            icLike.setOnClickListener{
+            val bgLike = holder.getView<View>(R.id.bg_like)
+            bgLike.setOnClickListener {
                 icLikeOnClickListener?.onClick(item.id, holder.layoutPosition, item.likeStatus)
             }
             val textLikeCount = holder.getView<TextView>(R.id.text_like_count)
@@ -238,9 +287,15 @@ class HomePageFragment : Fragment() {
             } else {
                 textLikeCount.text = "点赞"
             }
+            val bgComment = holder.getView<View>(R.id.bg_comment)
+            bgComment.setOnClickListener {
+                icCommentOnClickListener?.onClick(item.id)
+            }
             val textCommentCount = holder.getView<TextView>(R.id.text_comment_count)
             if (item.commentCount > 0) {
                 textCommentCount.text = item.commentCount.toString()
+            } else {
+                textCommentCount.text = "评论"
             }
             val fragmentImages = holder.getView<FrameLayout>(R.id.fragment_images)
             fragmentImages.removeAllViews()
@@ -251,7 +306,10 @@ class HomePageFragment : Fragment() {
                     id = View.generateViewId()
                 }
                 val height = context.dpToPx(216)
-                val layoutParams = ConstraintLayout.LayoutParams(ConstraintLayout.LayoutParams.MATCH_PARENT, height)
+                val layoutParams = ConstraintLayout.LayoutParams(
+                    ConstraintLayout.LayoutParams.MATCH_PARENT,
+                    height
+                )
                 layoutParams.topMargin = context.dpToPx(9)
                 img.layoutParams = layoutParams
                 Glide.with(context)
@@ -260,32 +318,6 @@ class HomePageFragment : Fragment() {
                     .transform(CenterCrop(), RoundedCorners(context.dpToPx(4)))
                     .into(img)
                 fragmentImages.addView(img)
-//                    .into(object : CustomTarget<Bitmap>(){
-//                        override fun onResourceReady(
-//                            resource: Bitmap,
-//                            transition: Transition<in Bitmap>?
-//                        ) {
-//                            val width = resource.width
-//                            val height = resource.height
-//                            val aspectRatio = width.toFloat() / height.toFloat()
-//                            val desiredHeight = ((context.resources.displayMetrics.widthPixels-context.dpToPx(48)) / aspectRatio).toInt()
-//                            img.setImageBitmap(resource)
-//                            val layoutParams = ConstraintLayout.LayoutParams(
-//                                ConstraintLayout.LayoutParams.MATCH_PARENT,
-//                                desiredHeight
-//                            )
-//                            layoutParams.topMargin = context.dpToPx(12)
-//                            layoutParams.bottomMargin = context.dpToPx(0)
-//                            layoutParams.marginStart = context.dpToPx(0)
-//                            layoutParams.marginEnd = context.dpToPx(0)
-//                            img.setPadding(0,0,0,0)
-//                            img.layoutParams = layoutParams
-//                            fragmentImages.addView(img)
-//                        }
-//
-//                        override fun onLoadCleared(placeholder: Drawable?) {
-//                        }
-//                    })
             }
 
             if (imageUrls.size > 1) {

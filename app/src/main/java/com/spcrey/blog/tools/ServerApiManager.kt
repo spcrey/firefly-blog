@@ -85,6 +85,26 @@ object ServerApiManager {
         @Headers("content-type: application/json")
         @POST("/article/add")
         fun articleAdd(@Header("Authorization") token: String, @Body form: ArticleAddForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/article/listComments")
+        fun articleListComments(@Header("Authorization") token: String, @Body form: ArticleListCommentsForm): Deferred<CommonData<List<ArticleComment>>>
+
+        @Headers("content-type: application/json")
+        @POST("/article/comment")
+        fun articleComment(@Header("Authorization") token: String, @Body form: ArticleCommentsForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/user/infoOther")
+        fun userInfoOther(@Header("Authorization") token: String, @Body form: UserInfoOtherForm): Deferred<CommonData<UserInfo>>
+
+        @Headers("content-type: application/json")
+        @POST("/user/follow")
+        fun userFollow(@Header("Authorization") token: String, @Body form: UserFollowForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/user/unfollow")
+        fun userUnfollow(@Header("Authorization") token: String, @Body form: UserFollowForm): Deferred<CommonData<String>>
     }
 
     val apiService: ApiService = retrofit.create(ApiService::class.java)
@@ -109,8 +129,16 @@ object ServerApiManager {
 
     data class ArticleLikeForm(val id: Int)
 
+    data class ArticleListCommentsForm(val id: Int)
+
+    data class ArticleCommentsForm(val content: String, val articleId: Int)
+
+    data class UserInfoOtherForm(val id: Int)
+
+    data class UserFollowForm(val followedUserId: Int)
+
     data class Article(
-        val id: Int, val content: String, val userID: Int, val createTime: String,
+        val id: Int, val content: String, val userId: Int, val createTime: String,
         val imageUrls: List<String>,
         val userNickname: String, val userAvatarUrl: String,
         var likeCount: Int, var likeStatus: Boolean?, val commentCount: Int
@@ -122,7 +150,12 @@ object ServerApiManager {
         val id: Int, val phoneNumber: String?,
         var nickname: String?, var email: String?, var personalSignature: String?,
         val avatarUrl: String?,
-        val isFollowed: Boolean?, val isFollower: Boolean?,
+        var isFollowed: Boolean?, val isFollower: Boolean?,
         val createTime: String, val updateTime: String
+    )
+
+    data class ArticleComment(
+        val id: Int, val content: String, val userNickname: String, val userAvatarUrl: String,
+        val createTime: String
     )
 }
