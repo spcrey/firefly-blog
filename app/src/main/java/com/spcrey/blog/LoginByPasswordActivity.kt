@@ -13,7 +13,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
-import com.spcrey.blog.LoginByCodeActivity.Companion
 import com.spcrey.blog.fragment.MineFragment
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.ServerApiManager
@@ -74,8 +73,8 @@ class LoginByPasswordActivity : AppCompatActivity() {
                                     edit.apply()
                                     withContext(Dispatchers.IO) {
                                         try {
-                                            CachedData.userInfo = ServerApiManager.apiService.userInfo(CachedData.token!!).await().data
-                                            Log.d(TAG, "userInfo: ${CachedData.userInfo.toString()}")
+                                            CachedData.user = ServerApiManager.apiService.userInfo(CachedData.token!!).await().data
+                                            Log.d(TAG, "userInfo: ${CachedData.user.toString()}")
                                             EventBus.getDefault().post(MineFragment.LoginEvent())
                                             withContext(Dispatchers.Main) {
                                                 finish()

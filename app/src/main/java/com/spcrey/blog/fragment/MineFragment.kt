@@ -84,7 +84,7 @@ class MineFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
         this.view = view
         EventBus.getDefault().register(this)
-        CachedData.userInfo?.let { it ->
+        CachedData.user?.let { it ->
             Glide.with(requireContext())
                 .load(it.avatarUrl)
                 .transform(CircleCrop())
@@ -122,7 +122,7 @@ class MineFragment : Fragment() {
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onLoginEvent(event:  LoginEvent) {
-        CachedData.userInfo?.let { it ->
+        CachedData.user?.let { it ->
             if (it.nickname == null) {
                 textNickname.text = "未命名"
             } else {
@@ -154,7 +154,7 @@ class MineFragment : Fragment() {
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun update(event:  Update) {
-        CachedData.userInfo?.let { it ->
+        CachedData.user?.let { it ->
             if (it.nickname == null) {
                 textNickname.text = "未命名"
             } else {

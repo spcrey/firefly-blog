@@ -43,14 +43,14 @@ class UserInfoActivity : AppCompatActivity() {
             Toast.makeText(this@UserInfoActivity, "该功能暂未实现", Toast.LENGTH_SHORT).show()
         }
         val btnFollow = findViewById<TextView>(R.id.btn_follow)
-        var userInfo: ServerApiManager.UserInfo? = null
+        var userInfo: ServerApiManager.User? = null
 
         lifecycleScope.launch {
             withContext(Dispatchers.IO) {
                 try {
                     val token: String = CachedData.token?:""
                     val commonData = ServerApiManager.apiService.userInfoOther(
-                        token, ServerApiManager.UserInfoOtherForm(userId)
+                        token, userId
                     ).await()
                     if (commonData.code == 1) {
                         userInfo = commonData.data
@@ -91,7 +91,7 @@ class UserInfoActivity : AppCompatActivity() {
                 if (isFollowed==null || token=="") {
                     Toast.makeText(this@UserInfoActivity, "未登录", Toast.LENGTH_SHORT).show()
                 } else if (isFollowed==false) {
-                    if (userId == CachedData.userInfo!!.id) {
+                    if (userId == CachedData.user!!.id) {
                         Toast.makeText(this@UserInfoActivity, "不能关注自己呀", Toast.LENGTH_SHORT).show()
                     } else {
                         lifecycleScope.launch {

@@ -1,5 +1,6 @@
 package com.spcrey.blog.fragment
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
@@ -45,16 +46,6 @@ import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
 import org.w3c.dom.Text
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
-
-/**
- * A simple [Fragment] subclass.
- * Use the [HomePageFragment.newInstance] factory method to
- * create an instance of this fragment.
- */
 class HomePageFragment : Fragment() {
 
     companion object {
@@ -78,6 +69,7 @@ class HomePageFragment : Fragment() {
         return inflater.inflate(R.layout.fragment_home_page, container, false)
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -91,15 +83,14 @@ class HomePageFragment : Fragment() {
             lifecycleScope.launch {
                 withContext(Dispatchers.IO) {
                     try {
-                        val token: String = CachedData.token?: ""
+                        val token = CachedData.token
                         CachedData.currentPageNum = 1
                         val commonData = ServerApiManager.apiService.articleList(
                             token,
-                            ServerApiManager.ArticleListForm(10, CachedData.currentPageNum)
+                            CachedData.currentPageNum, 10
                         ).await()
                         CachedData.articles.clear()
                         CachedData.articles.addAll(commonData.data.items)
-                        CachedData.articles.shuffle()
                         withContext(Dispatchers.Main) {
                             articleAdapter.notifyDataSetChanged()
                             swipeRefreshLayout.isRefreshing = false
@@ -125,7 +116,7 @@ class HomePageFragment : Fragment() {
                         delay(1000)
                         val commonData = ServerApiManager.apiService.articleList(
                             token,
-                            ServerApiManager.ArticleListForm(10, CachedData.currentPageNum + 1)
+                            CachedData.currentPageNum + 1, 10
                         ).await()
                         if (commonData.code == 1) {
                             if (commonData.data.items.isNotEmpty()) {
@@ -168,47 +159,51 @@ class HomePageFragment : Fragment() {
 
         articleAdapter.setIcLikeOnClickListener(object : ArticleAdapter.IcLikeOnClickListener{
             override fun onClick(id: Int, position: Int, status: Boolean?) {
-                if (status == null) {
-                    Toast.makeText(context, "请先登录", Toast.LENGTH_SHORT).show()
-                } else if (status==true) {
-                    lifecycleScope.launch {
-                        withContext(Dispatchers.IO) {
-                            try {
-                                val commonData = ServerApiManager.apiService.articleUnlike(
-                                    CachedData.token!!,
-                                    ServerApiManager.ArticleLikeForm(id)
-                                ).await()
-                                if (commonData.code==1) {
-                                    withContext(Dispatchers.Main) {
-                                        val data = articleAdapter.getItem(position)
-                                        data.likeStatus = false
-                                        data.likeCount -= 1
-                                        articleAdapter.notifyDataSetChanged()
+                when (status) {
+                    null -> {
+                        Toast.makeText(context, "请先登录", Toast.LENGTH_SHORT).show()
+                    }
+                    true -> {
+                        lifecycleScope.launch {
+                            withContext(Dispatchers.IO) {
+                                try {
+                                    val commonData = ServerApiManager.apiService.articleUnlike(
+                                        CachedData.token!!,
+                                        ServerApiManager.ArticleLikeForm(id)
+                                    ).await()
+                                    if (commonData.code==1) {
+                                        withContext(Dispatchers.Main) {
+                                            val data = articleAdapter.getItem(position)
+                                            data.likeStatus = false
+                                            data.likeCount -= 1
+                                            articleAdapter.notifyDataSetChanged()
+                                        }
                                     }
+                                } catch (e: Exception) {
+                                    Log.d(TAG, "request failed: ${e.message}")
                                 }
-                            } catch (e: Exception) {
-                                Log.d(TAG, "request failed: ${e.message}")
                             }
                         }
                     }
-                }else {
-                    lifecycleScope.launch {
-                        withContext(Dispatchers.IO) {
-                            try {
-                                val commonData = ServerApiManager.apiService.articleLike(
-                                    CachedData.token!!,
-                                    ServerApiManager.ArticleLikeForm(id)
-                                ).await()
-                                if (commonData.code==1) {
-                                    withContext(Dispatchers.Main) {
-                                        val data = articleAdapter.getItem(position)
-                                        data.likeStatus = true
-                                        data.likeCount += 1
-                                        articleAdapter.notifyDataSetChanged()
+                    else -> {
+                        lifecycleScope.launch {
+                            withContext(Dispatchers.IO) {
+                                try {
+                                    val commonData = ServerApiManager.apiService.articleLike(
+                                        CachedData.token!!,
+                                        ServerApiManager.ArticleLikeForm(id)
+                                    ).await()
+                                    if (commonData.code==1) {
+                                        withContext(Dispatchers.Main) {
+                                            val data = articleAdapter.getItem(position)
+                                            data.likeStatus = true
+                                            data.likeCount += 1
+                                            articleAdapter.notifyDataSetChanged()
+                                        }
                                     }
+                                } catch (e: Exception) {
+                                    Log.d(TAG, "request failed: ${e.message}")
                                 }
-                            } catch (e: Exception) {
-                                Log.d(TAG, "request failed: ${e.message}")
                             }
                         }
                     }
@@ -353,6 +348,7 @@ class HomePageFragment : Fragment() {
         }
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onDataLoad(event:  DataLoadEvent) {
         articleAdapter.notifyDataSetChanged()

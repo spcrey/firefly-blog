@@ -102,7 +102,7 @@ class CommentActivity : AppCompatActivity() {
                                 }
                                 if (id != 0) {
                                     val commonDataComments = ServerApiManager.apiService.articleListComments(
-                                        token, ServerApiManager.ArticleListCommentsForm(id)
+                                        id
                                     ).await()
                                     if (commonDataComments.code == 1) {
                                         comments.clear()
@@ -152,9 +152,9 @@ class CommentActivity : AppCompatActivity() {
             withContext(Dispatchers.IO) {
                 try {
                     val token = CachedData.token
-                    if (token != null && id != 0) {
+                    if (id != 0) {
                         val commonData = ServerApiManager.apiService.articleListComments(
-                            token, ServerApiManager.ArticleListCommentsForm(id)
+                            id
                         ).await()
                         if (commonData.code == 1) {
                             comments.addAll(commonData.data)

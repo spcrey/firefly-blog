@@ -14,23 +14,11 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.text.set
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
-import com.alibaba.sdk.android.oss.ClientException
-import com.alibaba.sdk.android.oss.OSSClient
-import com.alibaba.sdk.android.oss.ServiceException
-import com.alibaba.sdk.android.oss.callback.OSSCompletedCallback
-import com.alibaba.sdk.android.oss.common.auth.OSSPlainTextAKSKCredentialProvider
-import com.alibaba.sdk.android.oss.internal.OSSAsyncTask
-import com.alibaba.sdk.android.oss.model.ObjectMetadata
-import com.alibaba.sdk.android.oss.model.PutObjectRequest
-import com.alibaba.sdk.android.oss.model.PutObjectResult
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CircleCrop
-import com.spcrey.blog.RegisterActivity.Companion
-import com.spcrey.blog.RegisterActivity.PhoneNumberPassword
 import com.spcrey.blog.fragment.MineFragment
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.ServerApiManager
@@ -38,11 +26,9 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.greenrobot.eventbus.EventBus
-import java.io.ByteArrayInputStream
 import java.io.File
 import java.io.FileInputStream
 import java.util.Base64
-import java.util.UUID
 
 class UpdateInfoActivity : AppCompatActivity() {
     companion object {
@@ -157,7 +143,7 @@ class UpdateInfoActivity : AppCompatActivity() {
         }
         val sharedPreferences = getSharedPreferences("user", MODE_PRIVATE)
         Glide.with(this)
-            .load(CachedData.userInfo?.avatarUrl)
+            .load(CachedData.user?.avatarUrl)
             .transform(CircleCrop())
             .into(imageAvatar)
 
@@ -168,7 +154,7 @@ class UpdateInfoActivity : AppCompatActivity() {
             startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE_REQUEST)
         }
 
-        CachedData.userInfo?.let { userInfo ->
+        CachedData.user?.let { userInfo ->
             val nickname = userInfo.nickname
             val email = userInfo.email
             val personalSignature = userInfo.personalSignature
@@ -202,9 +188,9 @@ class UpdateInfoActivity : AppCompatActivity() {
                         if (commonData.code == 1) {
                             withContext(Dispatchers.Main) {
                                 Toast.makeText(this@UpdateInfoActivity, "信息修改成功", Toast.LENGTH_SHORT).show()
-                                CachedData.userInfo?.nickname = userUpdate.nickname
-                                CachedData.userInfo?.email = userUpdate.email
-                                CachedData.userInfo?.personalSignature = userUpdate.personalSignature
+                                CachedData.user?.nickname = userUpdate.nickname!!
+                                CachedData.user?.email = userUpdate.email
+                                CachedData.user?.personalSignature = userUpdate.personalSignature
                                 EventBus.getDefault().post(MineFragment.LoginEvent())
                             }
                         } else {
@@ -232,7 +218,7 @@ class UpdateInfoActivity : AppCompatActivity() {
                         ).await()
                         if (commonData.code==1) {
                             CachedData.token = null
-                            CachedData.userInfo = null
+                            CachedData.user = null
                             val editor = sharedPreferences?.edit()
                             if (editor != null) {
                                 editor.remove("token")

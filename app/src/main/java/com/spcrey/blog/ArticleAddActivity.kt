@@ -69,11 +69,6 @@ class ArticleAddActivity : AppCompatActivity() {
             val file = localPath?.let {
                 File(it)
             }
-            if (file != null) {
-                if (file.exists()) {
-//                    Toast.makeText(this, "文件存在", Toast.LENGTH_SHORT).show()
-                }
-            }
 
             val fileBytes = FileInputStream(file).readBytes()
             val fileBase64 = Base64.getEncoder().encodeToString(fileBytes)

@@ -8,7 +8,6 @@ import android.util.Log
 import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -18,7 +17,6 @@ import com.spcrey.blog.fragment.MessageListFragment
 import com.spcrey.blog.fragment.MineFragment
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.ServerApiManager
-import com.spcrey.blog.tools.ServerApiManager.ArticleListForm
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -63,8 +61,8 @@ class PageActivity : AppCompatActivity() {
             withContext(Dispatchers.IO) {
                 if (CachedData.token != null) {
                     try {
-                        CachedData.userInfo = ServerApiManager.apiService.userInfo(CachedData.token!!).await().data
-                        Log.d(TAG, "userInfo: ${CachedData.userInfo.toString()}")
+                        CachedData.user = ServerApiManager.apiService.userInfo(CachedData.token!!).await().data
+                        Log.d(TAG, "userInfo: ${CachedData.user.toString()}")
                     } catch (e: Exception) {
                         Log.d(TAG, "request failed: ${e.message}")
                     }
@@ -74,13 +72,9 @@ class PageActivity : AppCompatActivity() {
 
         lifecycleScope.launch {
             withContext(Dispatchers.IO) {
-                    try {;
-                        val t: String = if (CachedData.token==null){
-                            ""
-                        } else {
-                            CachedData.token!!
-                        }
-                        val commonData = ServerApiManager.apiService.articleList(t, ArticleListForm(10, 1)).await()
+                    try {
+                        val token = CachedData.token
+                        val commonData = ServerApiManager.apiService.articleList(token, 1, 10).await()
                         CachedData.articles.addAll(commonData.data.items)
                         EventBus.getDefault().post(HomePageFragment.DataLoadEvent())
                         Log.d(TAG, "article: ${CachedData.articles.toString()}")

@@ -3,7 +3,6 @@ package com.spcrey.blog.tools
 import com.google.gson.Gson
 import com.jakewharton.retrofit2.adapter.kotlin.coroutines.CoroutineCallAdapterFactory
 import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -13,12 +12,9 @@ import retrofit2.http.Header
 import retrofit2.http.Headers
 import retrofit2.http.POST
 import retrofit2.http.Query
-import java.time.LocalDateTime
-import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 
 object ServerApiManager {
-    private const val TAG = "ServerApiManager"
 
     private val okHttpClient = OkHttpClient.Builder()
         .callTimeout(10, TimeUnit.SECONDS)
@@ -31,44 +27,60 @@ object ServerApiManager {
         .client(okHttpClient)
         .addConverterFactory(GsonConverterFactory.create(gson))
         .addCallAdapterFactory(CoroutineCallAdapterFactory())
-        .build();
+        .build()
 
     interface ApiService {
         @Headers("content-type: application/json")
-        @GET("/")
-        fun firefly(): Deferred<CommonData<String>>
-
-        @Headers("content-type: application/json")
         @POST("/user/sendSms")
         fun userSendSms(@Body form: UserSendSmsForm): Deferred<CommonData<String>>
-
-        @Headers("content-type: application/json")
-        @POST("/user/loginByCode")
-        fun userLoginByCode(@Body form: UserLoginByCodeForm): Deferred<CommonData<String>>
-
-        @Headers("content-type: application/json")
-        @GET("/user/info")
-        fun userInfo(@Header("Authorization") token: String): Deferred<CommonData<UserInfo>>
-
-        @Headers("content-type: application/json")
-        @POST("/user/loginByPassword")
-        fun userLoginByPassword(@Body form: UserLoginByPasswordForm): Deferred<CommonData<String>>
 
         @Headers("content-type: application/json")
         @POST("/user/register")
         fun userRegister(@Body form: UserRegisterForm): Deferred<CommonData<String>>
 
         @Headers("content-type: application/json")
-        @POST("/user/logout")
-        fun userLogout(@Header("Authorization") token: String): Deferred<CommonData<String>>
+        @POST("/user/loginByCode")
+        fun userLoginByCode(@Body form: UserLoginByCodeForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/user/loginByPassword")
+        fun userLoginByPassword(@Body form: UserLoginByPasswordForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @GET("/user/info")
+        fun userInfo(@Header("Authorization") token: String): Deferred<CommonData<User>>
+
+        @Headers("content-type: application/json")
+        @GET("/user/infoOther")
+        fun userInfoOther(@Header("Authorization") token: String?, @Query("userId") userId: Int): Deferred<CommonData<User>>
 
         @Headers("content-type: application/json")
         @POST("/user/update")
         fun userUpdate(@Header("Authorization") token: String, @Body form: UserUpdateForm): Deferred<CommonData<String>>
 
         @Headers("content-type: application/json")
-        @POST("/article/list")
-        fun articleList(@Header("Authorization") token: String="", @Body form: ArticleListForm): Deferred<CommonData<ArticleList>>
+        @POST("/user/updateAvatar")
+        fun userUpdateAvatar(@Header("Authorization") token: String, @Body form: UserUpdateAvatarForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/user/follow")
+        fun userFollow(@Header("Authorization") token: String, @Body form: UserFollowForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/user/unfollow")
+        fun userUnfollow(@Header("Authorization") token: String, @Body form: UserFollowForm): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/user/logout")
+        fun userLogout(@Header("Authorization") token: String): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @GET("/article/list")
+        fun articleList(@Header("Authorization") token: String?, @Query("pageNum") pageNum: Int, @Query("pageSize") pageSize: Int): Deferred<CommonData<ArticleList>>
+
+        @Headers("content-type: application/json")
+        @POST("/article/add")
+        fun articleAdd(@Header("Authorization") token: String, @Body form: ArticleAddForm): Deferred<CommonData<String>>
 
         @Headers("content-type: application/json")
         @POST("/article/like")
@@ -79,39 +91,19 @@ object ServerApiManager {
         fun articleUnlike(@Header("Authorization") token: String, @Body form: ArticleLikeForm): Deferred<CommonData<String>>
 
         @Headers("content-type: application/json")
-        @POST("/user/updateAvatar")
-        fun userUpdateAvatar(@Header("Authorization") token: String, @Body form: UserUpdateAvatarForm): Deferred<CommonData<String>>
-
-        @Headers("content-type: application/json")
-        @POST("/article/add")
-        fun articleAdd(@Header("Authorization") token: String, @Body form: ArticleAddForm): Deferred<CommonData<String>>
-
-        @Headers("content-type: application/json")
-        @POST("/article/listComments")
-        fun articleListComments(@Header("Authorization") token: String, @Body form: ArticleListCommentsForm): Deferred<CommonData<List<ArticleComment>>>
+        @GET("/article/listComments")
+        fun articleListComments(@Query("articleId") articleId: Int): Deferred<CommonData<List<ArticleComment>>>
 
         @Headers("content-type: application/json")
         @POST("/article/comment")
         fun articleComment(@Header("Authorization") token: String, @Body form: ArticleCommentsForm): Deferred<CommonData<String>>
-
-        @Headers("content-type: application/json")
-        @POST("/user/infoOther")
-        fun userInfoOther(@Header("Authorization") token: String, @Body form: UserInfoOtherForm): Deferred<CommonData<UserInfo>>
-
-        @Headers("content-type: application/json")
-        @POST("/user/follow")
-        fun userFollow(@Header("Authorization") token: String, @Body form: UserFollowForm): Deferred<CommonData<String>>
-
-        @Headers("content-type: application/json")
-        @POST("/user/unfollow")
-        fun userUnfollow(@Header("Authorization") token: String, @Body form: UserFollowForm): Deferred<CommonData<String>>
     }
 
     val apiService: ApiService = retrofit.create(ApiService::class.java)
 
-    data class ArticleAddForm(val content: String, val imageUrls: MutableList<String>)
-
     data class CommonData<T>(val code: Int, val message: String, val data: T)
+
+    data class ArticleAddForm(val content: String, val imageUrls: MutableList<String>)
 
     data class UserSendSmsForm(val phoneNumber: String)
 
@@ -125,15 +117,11 @@ object ServerApiManager {
 
     data class UserUpdateForm(var nickname: String?=null, var email: String?=null, var personalSignature: String?=null)
 
-    data class ArticleListForm(val pageSize: Int, val pageNum: Int)
-
     data class ArticleLikeForm(val id: Int)
 
     data class ArticleListCommentsForm(val id: Int)
 
     data class ArticleCommentsForm(val content: String, val articleId: Int)
-
-    data class UserInfoOtherForm(val id: Int)
 
     data class UserFollowForm(val followedUserId: Int)
 
@@ -146,10 +134,10 @@ object ServerApiManager {
 
     data class ArticleList(val total: Int, val items: List<Article>)
 
-    data class UserInfo(
+    data class User(
         val id: Int, val phoneNumber: String?,
-        var nickname: String?, var email: String?, var personalSignature: String?,
-        val avatarUrl: String?,
+        var nickname: String, var email: String?, var personalSignature: String?,
+        val avatarUrl: String,
         var isFollowed: Boolean?, val isFollower: Boolean?,
         val createTime: String, val updateTime: String
     )
