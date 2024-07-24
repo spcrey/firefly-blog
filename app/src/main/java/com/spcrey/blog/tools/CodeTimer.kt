@@ -1,5 +1,6 @@
 package com.spcrey.blog.tools
 
+import com.spcrey.blog.fragment.HomePageFragment.ArticleAdapter.IcLikeOnClickListener
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.cancel
@@ -13,13 +14,20 @@ object CodeTimer {
         suspend fun complete()
     }
 
-    private const val MAX_COUNT = 10
+    private const val MAX_COUNT = 30
     private var resumeTime: Int = 0
     private val scope = CoroutineScope(Dispatchers.IO)
-    var listener: Listener? = null
+    private var listener: Listener? = null
+
+    fun setListener(listener: Listener) {
+        this.listener = listener
+    }
+
+    fun clearListener() {
+        this.listener = null
+    }
 
     fun start() {
-        scope.cancel()
         resumeTime = MAX_COUNT
         scope.launch {
             while (resumeTime > 0) {

@@ -22,10 +22,10 @@ class RegisterActivity : AppCompatActivity() {
     }
 
     val textPhoneInput by lazy{
-        findViewById<EditText>(R.id.text_phone_input)
+        findViewById<EditText>(R.id.editText_phone_number)
     }
     val editTextPassword by lazy{
-        findViewById<EditText>(R.id.edit_text_password)
+        findViewById<EditText>(R.id.editText_password)
     }
     val editTextPasswordSecond by lazy{
         findViewById<EditText>(R.id.edit_text_password_second)

@@ -34,9 +34,9 @@ class UserInfoActivity : AppCompatActivity() {
             insets
         }
         val userId = intent.getIntExtra("userId", 0)
-        val textNickname = findViewById<TextView>(R.id.text_nickname)
-        val textFanNum = findViewById<TextView>(R.id.text_fan_num)
-        val imgAvatar = findViewById<ImageView>(R.id.img_avatar)
+        val textNickname = findViewById<TextView>(R.id.text_nickname_title)
+        val textFanNum = findViewById<TextView>(R.id.text_user_phone_number)
+        val imgAvatar = findViewById<ImageView>(R.id.img_user_avatar)
         val textEmail = findViewById<TextView>(R.id.text_email)
         val btnChat = findViewById<TextView>(R.id.btn_chat)
         btnChat.setOnClickListener {

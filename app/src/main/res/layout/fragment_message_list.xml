@@ -5,10 +5,14 @@
     android:layout_height="match_parent"
     tools:context=".fragment.MessageListFragment">
 
-    <!-- TODO: Update blank fragment layout -->
     <TextView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:text="message list fragment" />
+        android:text="@string/prompt_not_implemented_feature"
+        android:gravity="center"
+        android:textColor="@color/white"
+        android:textSize="16sp"
+        android:alpha="0.4"
+        />
 
 </FrameLayout>

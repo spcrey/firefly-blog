@@ -2,8 +2,6 @@ package com.spcrey.blog
 
 import android.content.Intent
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import android.widget.EditText
@@ -22,9 +20,28 @@ import kotlinx.coroutines.withContext
 import org.greenrobot.eventbus.EventBus
 
 class LoginByPasswordActivity : AppCompatActivity() {
-
     companion object {
         private const val TAG = "LoginByPasswordActivity"
+        private const val SHARED_PREFERENCE_NAME = "user"
+    }
+
+    private val editTextPhoneNumber by lazy {
+        findViewById<EditText>(R.id.editText_phone_number)
+    }
+    private val editTextPassword by lazy {
+        findViewById<EditText>(R.id.editText_password)
+    }
+    private val btnLogin by lazy {
+        findViewById<View>(R.id.btn_to_login)
+    }
+    private val btnToRegister by lazy {
+        findViewById<View>(R.id.btn_to_register)
+    }
+    private val btnToLoginByCode by lazy {
+        findViewById<View>(R.id.btn_to_login_by_code)
+    }
+    private val sharedPreferences by lazy {
+        getSharedPreferences(SHARED_PREFERENCE_NAME, MODE_PRIVATE)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,16 +53,6 @@ class LoginByPasswordActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        val sharedPreferences = getSharedPreferences("user", MODE_PRIVATE)
-
-        val textPhoneInput = findViewById<EditText>(R.id.text_phone_input)
-        val editTextPassword = findViewById<EditText>(R.id.edit_text_password)
-        val btnLogin = findViewById<View>(R.id.btn_login)
-        val btnToRegister = findViewById<View>(R.id.btn_to_register)
-        val btnToLoginByCode = findViewById<View>(R.id.btn_to_login_by_code)
-
-        var phone: String? = null
-        var password: String? = null
 
         btnToRegister.setOnClickListener {
             val intent = Intent(this, RegisterActivity::class.java)
@@ -58,73 +65,77 @@ class LoginByPasswordActivity : AppCompatActivity() {
             finish()
         }
 
-        btnLogin.setOnClickListener{
-            if (phone != null && password!= null) {
+        btnLogin.setOnClickListener {
+            val commonData = validateEditText()
+            commonData.data?.let { userLoginByPasswordForm ->
                 lifecycleScope.launch {
-                    withContext(Dispatchers.IO) {
-                        try {
-                            val commonData = ServerApiManager.apiService.userLoginByPassword(ServerApiManager.UserLoginByPasswordForm(phone!!, password!!)).await()
-                            if (commonData.code == 1) {
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(this@LoginByPasswordActivity, "登陆成功", Toast.LENGTH_SHORT).show()
-                                    CachedData.token = commonData.data
-                                    val edit = sharedPreferences.edit()
-                                    edit.putString("token", commonData.data)
-                                    edit.apply()
-                                    withContext(Dispatchers.IO) {
-                                        try {
-                                            CachedData.user = ServerApiManager.apiService.userInfo(CachedData.token!!).await().data
-                                            Log.d(TAG, "userInfo: ${CachedData.user.toString()}")
-                                            EventBus.getDefault().post(MineFragment.LoginEvent())
-                                            withContext(Dispatchers.Main) {
-                                                finish()
-                                            }
+                    userLoginByPassword(userLoginByPasswordForm)
+                }
+            } ?: run {
+                Toast.makeText(
+                    this@LoginByPasswordActivity, commonData.message, Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
 
-                                        } catch (e: Exception) {
-                                            Log.d(TAG, "request failed: ${e.message}")
-                                        }
-                                    }
-                                }
-                            } else {
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(this@LoginByPasswordActivity, "密码错误", Toast.LENGTH_SHORT).show()
-                                }
-                            }
+    private fun validateEditText(): ServerApiManager.CommonData<ServerApiManager.UserLoginByPasswordForm?> {
+        val phoneNumber = editTextPhoneNumber.text.toString()
+        if (phoneNumber.length != 11) {
+            return ServerApiManager.CommonData(0, "手机号格式不正确", null)
+        }
+        val password = editTextPassword.text.toString()
+        val passwordPattern = Regex("^(?=.*[a-zA-Z]).{8,24}$")
+        if (!password.matches(passwordPattern)) {
+            return ServerApiManager.CommonData(0, "密码需要8-24位，且需要包含字母", null)
+        }
+        return ServerApiManager.CommonData(
+            1, "输入正确", ServerApiManager.UserLoginByPasswordForm(
+                phoneNumber, password
+            )
+        )
+    }
 
-                        } catch (e: Exception) {
-                            Log.d(TAG, "request failed: ${e.message}")
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(this@LoginByPasswordActivity, "登录失败", Toast.LENGTH_SHORT).show()
-                            }
+    private suspend fun runAfterUserLoginByPassword(data: String) {
+        withContext(Dispatchers.Main) {
+            CachedData.token = data
+            val edit = sharedPreferences.edit()
+            edit.putString("token", data)
+            edit.apply()
+            Toast.makeText(
+                this@LoginByPasswordActivity, "登陆成功", Toast.LENGTH_SHORT
+            ).show()
+            EventBus.getDefault().post(MineFragment.UserInfoUpdateEvent())
+            finish()
+        }
+    }
+
+    private suspend fun userLoginByPassword(userLoginByPasswordForm: ServerApiManager.UserLoginByPasswordForm) {
+        withContext(Dispatchers.IO) {
+            try {
+                val commonData = ServerApiManager.apiService.userLoginByPassword(
+                    userLoginByPasswordForm
+                ).await()
+                when (commonData.code) {
+                    1 -> {
+                        runAfterUserLoginByPassword(commonData.data)
+                    }
+                    else -> {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                this@LoginByPasswordActivity, "手机号或密码错误", Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
                 }
-            } else {
-                Toast.makeText(this, "手机号或密码格式不正确", Toast.LENGTH_SHORT).show()
+            } catch (e: Exception) {
+                Log.d(TAG, "request failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@LoginByPasswordActivity, "请求异常", Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
-
-        textPhoneInput.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) { }
-            override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
-                if (p0 != null && p0.length==11) {
-                    phone = p0.toString()
-                } else {
-                    phone = null
-                }
-            }
-            override fun afterTextChanged(p0: Editable?) { }
-        })
-        editTextPassword.addTextChangedListener(object : TextWatcher {
-            override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) { }
-            override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
-                if (p0 != null && p0.length >= 8 && p0.length <= 24) {
-                    password = p0.toString()
-                } else {
-                    password = null
-                }
-            }
-            override fun afterTextChanged(p0: Editable?) { }
-        })
     }
 }

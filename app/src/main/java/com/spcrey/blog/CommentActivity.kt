@@ -180,7 +180,7 @@ class CommentActivity : AppCompatActivity() {
                 .load(item.userAvatarUrl)
                 .transform(CircleCrop())
                 .into(imgUserAvatar)
-            val textUserNickname = holder.getView<TextView>(R.id.text_user_nickname)
+            val textUserNickname = holder.getView<TextView>(R.id.text_nickname_title)
             textUserNickname.text = item.userNickname
             val textContent = holder.getView<TextView>(R.id.text_content)
             textContent.text = item.content

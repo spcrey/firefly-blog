@@ -3,8 +3,6 @@ package com.spcrey.blog.fragment
 import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
-import android.graphics.Bitmap
-import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.util.Log
 import androidx.fragment.app.Fragment
@@ -26,14 +24,11 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import com.bumptech.glide.load.resource.bitmap.CircleCrop
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners
-import com.bumptech.glide.request.target.CustomTarget
-import com.bumptech.glide.request.transition.Transition
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.module.LoadMoreModule
 import com.chad.library.adapter.base.viewholder.BaseViewHolder
 import com.spcrey.blog.CommentActivity
 import com.spcrey.blog.R
-import com.spcrey.blog.RegisterActivity
 import com.spcrey.blog.UserInfoActivity
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.ServerApiManager
@@ -44,7 +39,6 @@ import kotlinx.coroutines.withContext
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
-import org.w3c.dom.Text
 
 class HomePageFragment : Fragment() {
 
@@ -259,7 +253,7 @@ class HomePageFragment : Fragment() {
             imgUserAvatar.setOnClickListener {
                 userOnClickListener?.onClick(item.userId)
             }
-            val textUserNickname = holder.getView<TextView>(R.id.text_user_nickname)
+            val textUserNickname = holder.getView<TextView>(R.id.text_nickname_title)
             textUserNickname.setOnClickListener {
                 userOnClickListener?.onClick(item.userId)
             }

@@ -2,108 +2,71 @@ package com.spcrey.blog.fragment
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import android.widget.Toast
+import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CircleCrop
 import com.spcrey.blog.LoginByCodeActivity
 import com.spcrey.blog.R
-import com.spcrey.blog.UpdateInfoActivity
+import com.spcrey.blog.UserUpdateActivity
 import com.spcrey.blog.tools.CachedData
+import com.spcrey.blog.tools.ServerApiManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
 
-// TODO: Rename parameter arguments, choose names that match
-// the fragment initialization parameters, e.g. ARG_ITEM_NUMBER
-private const val ARG_PARAM1 = "param1"
-private const val ARG_PARAM2 = "param2"
-
-/**
- * A simple [Fragment] subclass.
- * Use the [MineFragment.newInstance] factory method to
- * create an instance of this fragment.
- */
 class MineFragment : Fragment() {
-
     companion object {
         private const val TAG = "MineFragment"
     }
 
-    enum class Status {
-        LOGIN, NOT_LOGIN
-    }
-
-    // TODO: Rename and change types of parameters
-    private var param1: String? = null
-    private var param2: String? = null
-
     private var status = Status.NOT_LOGIN
 
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        arguments?.let {
-            param1 = it.getString(ARG_PARAM1)
-            param2 = it.getString(ARG_PARAM2)
-        }
+    private lateinit var view: View
+
+    private val btnToLogin by lazy {
+        view.findViewById<View>(R.id.btn_to_login)
+    }
+    private val imgUserAvatar by lazy {
+        view.findViewById<ImageView>(R.id.img_user_avatar)
+    }
+    private val textToLogin by lazy {
+        view.findViewById<TextView>(R.id.text_to_login)
+    }
+    private val textUserNickname by lazy {
+        view.findViewById<TextView>(R.id.text_nickname_title)
+    }
+    private val textUserPhoneNumber by lazy {
+        view.findViewById<TextView>(R.id.text_user_phone_number)
     }
 
     override fun onCreateView(
-        inflater: LayoutInflater, container: ViewGroup?,
-        savedInstanceState: Bundle?
+        inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?
     ): View? {
-        // Inflate the layout for this fragment
         return inflater.inflate(R.layout.fragment_mine, container, false)
-    }
-    private lateinit var view: View
-
-    private val btnLogin by lazy {
-        view.findViewById<View>(R.id.btn_login)
-    }
-
-    private val imageAvatar by lazy {
-        view.findViewById<ImageView>(R.id.img_avatar)
-    }
-
-    private val textLogin by lazy {
-        view.findViewById<TextView>(R.id.text_login)
-    }
-
-    private val textNickname by lazy {
-        view.findViewById<TextView>(R.id.text_nickname)
-    }
-    private val textFanNum  by lazy {
-        view.findViewById<TextView>(R.id.text_fan_num)
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         this.view = view
         EventBus.getDefault().register(this)
-        CachedData.user?.let { it ->
-            Glide.with(requireContext())
-                .load(it.avatarUrl)
-                .transform(CircleCrop())
-                .into(imageAvatar)
-            if (it.nickname == null) {
-                textNickname.text = "未命名"
-            } else {
-                textNickname.text = it.nickname
-            }
-            textFanNum.text = it.phoneNumber
-            textLogin.text = "修改信息"
-            status = Status.LOGIN
-        }?: run {
-        }
 
-        btnLogin.setOnClickListener {
-            when(status) {
+        onUserLoginEvent(UserLoginEvent())
+
+        btnToLogin.setOnClickListener {
+            when (status) {
                 Status.LOGIN -> {
-                    val intent = Intent(context, UpdateInfoActivity::class.java)
+                    val intent = Intent(context, UserUpdateActivity::class.java)
                     startActivity(intent)
                 }
                 Status.NOT_LOGIN -> {
@@ -111,7 +74,6 @@ class MineFragment : Fragment() {
                     startActivity(intent)
                 }
             }
-
         }
     }
 
@@ -121,48 +83,67 @@ class MineFragment : Fragment() {
     }
 
     @Subscribe(threadMode = ThreadMode.MAIN)
-    fun onLoginEvent(event:  LoginEvent) {
-        CachedData.user?.let { it ->
-            if (it.nickname == null) {
-                textNickname.text = "未命名"
-            } else {
-                textNickname.text = it.nickname
+    fun onUserInfoUpdateEvent(event: UserInfoUpdateEvent) {
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                CachedData.token?.let { token ->
+                    try {
+                        val commonData = ServerApiManager.apiService.userInfo(token).await()
+                        when (commonData.code) {
+                            1 -> {
+                                CachedData.user = commonData.data
+                                withContext(Dispatchers.Main) {
+                                    onUserLoginEvent(UserLoginEvent())
+                                }
+                            }
+                            else -> {
+                                withContext(Dispatchers.Main) {
+                                    Toast.makeText(
+                                        context, "参数错误", Toast.LENGTH_SHORT
+                                    ).show()
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.d(TAG, "request failed: ${e.message}")
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(context, "请求异常", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
             }
-            textFanNum.text = it.phoneNumber
-            Glide.with(requireContext())
-                .load(it.avatarUrl)
-                .transform(CircleCrop())
-                .into(imageAvatar)
         }
-
-        textLogin.text = "修改信息"
-        status = Status.LOGIN
     }
 
-    class LoginEvent
+    class UserInfoUpdateEvent
+
+    private fun onUserLoginEvent(event: UserLoginEvent) {
+        CachedData.user?.let { user ->
+            Glide.with(requireContext()).load(user.avatarUrl).transform(CircleCrop())
+                .into(imgUserAvatar)
+            imgUserAvatar.alpha = 1f
+            textUserNickname.text = user.nickname
+            textUserPhoneNumber.text = user.phoneNumber
+            status = Status.LOGIN
+            textToLogin.text = getString(R.string.text_modify_info)
+        }
+    }
+
+    class UserLoginEvent
 
     @Subscribe(threadMode = ThreadMode.MAIN)
-    fun onLogoutEvent(event:  LogoutEvent) {
-        textNickname.text = "请先登录"
-        textFanNum.text = "点击头像去登陆"
-        textLogin.text = "登录"
-        imageAvatar.setImageResource(R.drawable.circle_shape)
+    fun onUserLogoutEvent(event: UserLogoutEvent) {
+        textUserNickname.text = getString(R.string.text_not_login)
+        textUserPhoneNumber.text = getString(R.string.text_prompt_login)
+        textToLogin.text = getString(R.string.text_to_login)
+        imgUserAvatar.setImageResource(R.drawable.bg_circle_white)
+        imgUserAvatar.alpha = 0.6f
         status = Status.NOT_LOGIN
     }
 
-    class LogoutEvent
+    class UserLogoutEvent
 
-    @Subscribe(threadMode = ThreadMode.MAIN)
-    fun update(event:  Update) {
-        CachedData.user?.let { it ->
-            if (it.nickname == null) {
-                textNickname.text = "未命名"
-            } else {
-                textNickname.text = it.nickname
-            }
-            textFanNum.text = it.phoneNumber
-        }
+    enum class Status {
+        LOGIN, NOT_LOGIN
     }
-
-    class Update
 }
