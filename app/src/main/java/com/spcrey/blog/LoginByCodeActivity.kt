@@ -27,6 +27,7 @@ import org.greenrobot.eventbus.EventBus
 class LoginByCodeActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "LoginByCodeActivity"
+        private const val SHARED_PREFERENCE_NAME = "user"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,7 +40,7 @@ class LoginByCodeActivity : AppCompatActivity() {
             insets
         }
 
-        val sharedPreferences = getSharedPreferences("user", MODE_PRIVATE)
+        val sharedPreferences = getSharedPreferences(SHARED_PREFERENCE_NAME, MODE_PRIVATE)
         val editTextPhoneNumber = findViewById<EditText>(R.id.editText_phone_number)
         val editTextCode = findViewById<EditText>(R.id.editText_code)
         val btnCodeGet = findViewById<TextView>(R.id.btn_code_get)

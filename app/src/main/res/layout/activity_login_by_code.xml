@@ -9,7 +9,7 @@
     tools:context=".LoginByCodeActivity">
 
     <TextView
-        android:id="@+id/bg_title_bar"
+        android:id="@+id/text_title_bar"
         android:layout_width="72dp"
         android:layout_height="24dp"
         android:textSize="20sp"
@@ -31,7 +31,7 @@
         android:background="@color/white"
         android:alpha="0.5"
         android:layout_marginBottom="-12dp"
-        app:layout_constraintBottom_toBottomOf="@+id/bg_title_bar"
+        app:layout_constraintBottom_toBottomOf="@+id/text_title_bar"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         />
@@ -59,7 +59,7 @@
         android:textSize="18sp"
         android:background="@drawable/bg_white_10_r8dp"
         android:textColor="@color/white"
-        android:alpha="0.8"
+        android:alpha="0.6"
         android:gravity="center_vertical"
         android:layout_marginStart="12dp"
         android:layout_marginEnd="12dp"
@@ -67,7 +67,7 @@
         android:inputType="phone"
         android:hint="@string/text_prompt_input_phone_number"
         android:maxLength="11"
-        android:textColorHint="#FF909090"
+        android:textColorHint="@color/deep_white"
         app:layout_constraintTop_toTopOf="@+id/bg_phone_number"
         app:layout_constraintStart_toStartOf="@+id/bg_phone_number"
         app:layout_constraintEnd_toEndOf="@+id/bg_phone_number"
@@ -94,7 +94,7 @@
         android:layout_width="156dp"
         android:layout_height="36dp"
         android:text="@string/text_code_text"
-        android:textColor="@color/blue"
+        android:textColor="@color/light_blue"
         android:textSize="18sp"
         android:gravity="center_vertical|end"
         android:layout_marginTop="8dp"
@@ -109,7 +109,7 @@
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:autofillHints=""
-        android:background="@color/white_40"
+        android:background="@color/light_gray"
         android:textColor="@color/white_B0"
         android:textSize="18sp"
         android:gravity="center_vertical"

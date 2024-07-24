@@ -27,6 +27,42 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "PageActivity"
+        private const val SHARED_PREFERENCE_NAME = "user"
+    }
+
+    private val textTitleBar by lazy {
+        findViewById<TextView>(R.id.text_title_bar)
+    }
+    private val bgHomePage by lazy {
+        findViewById<View>(R.id.bg_home_page)
+    }
+    private val bgMessageList by lazy {
+        findViewById<View>(R.id.bg_message_list)
+    }
+    private val bgMine by lazy {
+        findViewById<View>(R.id.bg_mine)
+    }
+    private val icHomePage by lazy {
+        findViewById<ImageView>(R.id.ic_home_page)
+    }
+    private val icMessageList by lazy {
+        findViewById<ImageView>(R.id.ic_message_list)
+    }
+    private val icMine by lazy {
+        findViewById<ImageView>(R.id.ic_mine)
+    }
+    private val textHomePage by lazy {
+        findViewById<TextView>(R.id.text_home_page)
+    }
+    private val textMessageList by lazy {
+        findViewById<TextView>(R.id.text_message_list)
+    }
+    private val textMine by lazy {
+        findViewById<TextView>(R.id.text_mine)
+    }
+
+    private val sharedPreferences by lazy {
+        getSharedPreferences(SHARED_PREFERENCE_NAME, Context.MODE_PRIVATE)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,81 +75,21 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        val textTitleBar = findViewById<TextView>(R.id.text_title_bar)
-        val bgHomePage = findViewById<View>(R.id.bg_home_page)
-        val bgMessageList = findViewById<View>(R.id.bg_message_list)
-        val bgMine = findViewById<View>(R.id.bg_mine)
-        val icHomePage = findViewById<ImageView>(R.id.ic_home_page)
-        val icMessageList = findViewById<ImageView>(R.id.ic_message_list)
-        val icMine = findViewById<ImageView>(R.id.ic_mine)
-        val textHomePage = findViewById<TextView>(R.id.text_home_page)
-        val textMessageList = findViewById<TextView>(R.id.text_message_list)
-        val textMine = findViewById<TextView>(R.id.text_mine)
-        val icArticleAdd = findViewById<ImageView>(R.id.ic_article_add)
-
-        val sharedPreferences = getSharedPreferences("user", Context.MODE_PRIVATE)
-
         CachedData.token = sharedPreferences.getString("token", null)
 
-        lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                CachedData.token?.let { token ->
-                    try {
-                        val commonData = ServerApiManager.apiService.userInfo(token).await()
-                        when (commonData.code) {
-                            1 -> {
-                                CachedData.user = commonData.data
-                            }
-
-                            else -> {
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(
-                                        this@MainActivity, "参数错误", Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.d(TAG, "request failed: ${e.message}")
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(this@MainActivity, "请求异常", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
+        CachedData.token?.let { token ->
+            lifecycleScope.launch {
+                userInfo(token)
             }
         }
 
         lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                try {
-                    val commonData =
-                        ServerApiManager.apiService.articleList(CachedData.token, 1, 10).await()
-                    when (commonData.code) {
-                        1 -> {
-                            CachedData.articles.clear()
-                            CachedData.articles.addAll(commonData.data.items)
-                            EventBus.getDefault().post(HomePageFragment.DataLoadEvent())
-                        }
-
-                        else -> {
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(this@MainActivity, "参数错误", Toast.LENGTH_SHORT)
-                                    .show()
-                            }
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.d(TAG, "request failed: ${e.message}")
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@MainActivity, "请求异常", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
+            articleList()
         }
 
         supportFragmentManager.beginTransaction().setReorderingAllowed(true).add(
-                R.id.fragment_content, HomePageFragment::class.java, null, TAG
-            ).commit()
+            R.id.fragment_content, HomePageFragment::class.java, null, TAG
+        ).commit()
 
         bgHomePage.setOnClickListener {
             textTitleBar.text = getString(R.string.title_home)
@@ -124,8 +100,8 @@ class MainActivity : AppCompatActivity() {
             textMessageList.alpha = 0.2f
             textMine.alpha = 0.2f
             supportFragmentManager.beginTransaction().setReorderingAllowed(true).replace(
-                    R.id.fragment_content, HomePageFragment::class.java, null, "TAG_FRAGMENT"
-                ).commit()
+                R.id.fragment_content, HomePageFragment::class.java, null, TAG
+            ).commit()
         }
 
         bgMessageList.setOnClickListener {
@@ -137,8 +113,8 @@ class MainActivity : AppCompatActivity() {
             textMessageList.alpha = 0.8f
             textMine.alpha = 0.2f
             supportFragmentManager.beginTransaction().setReorderingAllowed(true).replace(
-                    R.id.fragment_content, MessageListFragment::class.java, null, "TAG_FRAGMENT"
-                ).commit()
+                R.id.fragment_content, MessageListFragment::class.java, null, TAG
+            ).commit()
         }
 
         bgMine.setOnClickListener {
@@ -150,13 +126,59 @@ class MainActivity : AppCompatActivity() {
             textMessageList.alpha = 0.2f
             textMine.alpha = 0.8f
             supportFragmentManager.beginTransaction().setReorderingAllowed(true).replace(
-                    R.id.fragment_content, MineFragment::class.java, null, "TAG_FRAGMENT"
-                ).commit()
+                R.id.fragment_content, MineFragment::class.java, null, TAG
+            ).commit()
         }
+    }
 
-        icArticleAdd.setOnClickListener {
-            val intent = Intent(this, ArticleAddActivity::class.java)
-            startActivity(intent)
+    private suspend fun userInfo(token: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                val commonData = ServerApiManager.apiService.userInfo(token).await()
+                when (commonData.code) {
+                    1 -> {
+                        CachedData.user = commonData.data
+                    }
+                    else -> {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                this@MainActivity, "参数错误", Toast.LENGTH_SHORT
+                            ).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "request failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "请求异常", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private suspend fun articleList() {
+        withContext(Dispatchers.IO) {
+            try {
+                val commonData =
+                    ServerApiManager.apiService.articleList(CachedData.token, 1, 10).await()
+                when (commonData.code) {
+                    1 -> {
+                        CachedData.articles.clear()
+                        CachedData.articles.addAll(commonData.data.items)
+                        EventBus.getDefault().post(HomePageFragment.DataLoadEvent())
+                    }
+                    else -> {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, "参数错误", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "request failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "请求异常", Toast.LENGTH_SHORT).show()
+                }
+            }
         }
     }
 }

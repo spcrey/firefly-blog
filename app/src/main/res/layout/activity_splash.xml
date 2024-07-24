@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:id="@+id/main"
     android:layout_width="match_parent"
     android:layout_height="match_parent">
@@ -9,13 +10,13 @@
         android:id="@+id/ic_splash"
         android:layout_width="120dp"
         android:layout_height="100dp"
-        android:contentDescription="@string/todo"
         android:src="@drawable/ic_splash"
         app:layout_constraintBottom_toTopOf="@+id/text_splash"
         app:layout_constraintLeft_toLeftOf="parent"
         app:layout_constraintRight_toRightOf="parent"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_chainStyle="packed" />
+        app:layout_constraintVertical_chainStyle="packed"
+        tools:ignore="ContentDescription" />
 
     <TextView
         android:id="@+id/text_splash"
@@ -49,7 +50,7 @@
             android:layout_height="60dp"
             android:layout_marginStart="60dp"
             android:layout_marginEnd="60dp"
-            android:background="@drawable/bg_white_01_r8dp_top"
+            android:background="@drawable/bg_light_gray_r8dp_top"
             app:layout_constraintLeft_toLeftOf="parent"
             app:layout_constraintRight_toRightOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
@@ -74,7 +75,7 @@
             android:layout_width="0dp"
             android:layout_height="0dp"
             android:layout_marginBottom="-6dp"
-            android:background="@color/white_40"
+            android:background="@color/light_gray"
             app:layout_constraintBottom_toBottomOf="@+id/text_statement_term_content"
             app:layout_constraintLeft_toLeftOf="@+id/bg_statement_term_title"
             app:layout_constraintRight_toRightOf="@+id/bg_statement_term_title"
@@ -99,7 +100,7 @@
             android:id="@+id/bg_disagree_statement_term"
             android:layout_width="0dp"
             android:layout_height="42dp"
-            android:background="@color/white_40"
+            android:background="@color/light_gray"
             app:layout_constraintBottom_toTopOf="@+id/btn_agree_statement_term"
             app:layout_constraintLeft_toLeftOf="@+id/bg_statement_term_title"
             app:layout_constraintRight_toRightOf="@+id/bg_statement_term_title"
@@ -109,7 +110,7 @@
             android:id="@+id/btn_agree_statement_term"
             android:layout_width="0dp"
             android:layout_height="48dp"
-            android:background="@drawable/bg_blue_r8dp_bottom"
+            android:background="@drawable/bg_light_blue_r8dp_bottom"
             android:gravity="center"
             android:text="@string/title_agree_statement_term"
             android:textColor="@color/white"

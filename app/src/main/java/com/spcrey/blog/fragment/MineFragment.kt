@@ -15,7 +15,7 @@ import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CircleCrop
 import com.spcrey.blog.LoginByCodeActivity
 import com.spcrey.blog.R
-import com.spcrey.blog.UserUpdateActivity
+import com.spcrey.blog.InfoModifyActivity
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.ServerApiManager
 import kotlinx.coroutines.Dispatchers
@@ -66,7 +66,7 @@ class MineFragment : Fragment() {
         btnToLogin.setOnClickListener {
             when (status) {
                 Status.LOGIN -> {
-                    val intent = Intent(context, UserUpdateActivity::class.java)
+                    val intent = Intent(context, InfoModifyActivity::class.java)
                     startActivity(intent)
                 }
                 Status.NOT_LOGIN -> {
@@ -82,35 +82,40 @@ class MineFragment : Fragment() {
         EventBus.getDefault().unregister(this)
     }
 
-    @Subscribe(threadMode = ThreadMode.MAIN)
-    fun onUserInfoUpdateEvent(event: UserInfoUpdateEvent) {
-        lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                CachedData.token?.let { token ->
-                    try {
-                        val commonData = ServerApiManager.apiService.userInfo(token).await()
-                        when (commonData.code) {
-                            1 -> {
-                                CachedData.user = commonData.data
-                                withContext(Dispatchers.Main) {
-                                    onUserLoginEvent(UserLoginEvent())
-                                }
-                            }
-                            else -> {
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(
-                                        context, "参数错误", Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
-                        }
-                    } catch (e: Exception) {
-                        Log.d(TAG, "request failed: ${e.message}")
+    private suspend fun userInfo(token: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                val commonData = ServerApiManager.apiService.userInfo(token).await()
+                when (commonData.code) {
+                    1 -> {
+                        CachedData.user = commonData.data
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "请求异常", Toast.LENGTH_SHORT).show()
+                            onUserLoginEvent(UserLoginEvent())
+                        }
+                    }
+                    else -> {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                context, "参数错误", Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
                 }
+            } catch (e: Exception) {
+                Log.d(TAG, "request failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(context, "请求异常", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    fun onUserInfoUpdateEvent(event: UserInfoUpdateEvent) {
+        CachedData.token?.let { token ->
+            lifecycleScope.launch {
+                userInfo(token)
             }
         }
     }
@@ -125,7 +130,7 @@ class MineFragment : Fragment() {
             textUserNickname.text = user.nickname
             textUserPhoneNumber.text = user.phoneNumber
             status = Status.LOGIN
-            textToLogin.text = getString(R.string.text_modify_info)
+            textToLogin.text = "去修改信息"
         }
     }
 

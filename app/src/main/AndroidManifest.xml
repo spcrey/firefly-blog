@@ -29,7 +29,7 @@
             android:name=".ArticleAddActivity"
             android:exported="false" />
         <activity
-            android:name=".UserUpdateActivity"
+            android:name=".InfoModifyActivity"
             android:exported="false" />
         <activity
             android:name=".RegisterActivity"

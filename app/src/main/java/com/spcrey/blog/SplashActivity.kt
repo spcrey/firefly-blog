@@ -32,6 +32,44 @@ import kotlin.system.exitProcess
 class SplashActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "SplashActivity"
+        private const val SHARED_PREFERENCE_NAME = "user"
+    }
+
+    private val icSplash by lazy {
+        findViewById<ImageView>(R.id.ic_splash)
+    }
+    private val textSplash by lazy {
+        findViewById<TextView>(R.id.text_splash)
+    }
+    private val bgStatementTerm by lazy {
+        findViewById<ConstraintLayout>(R.id.bg_statement_term)
+    }
+    private val textStatementTermContent by lazy {
+        findViewById<TextView>(R.id.text_statement_term_content)
+    }
+    private val btnDisagreeStatementTerm by lazy {
+        findViewById<TextView>(R.id.btn_disagree_statement_term)
+    }
+    private val btnAgreeStatementTerm by lazy {
+        findViewById<TextView>(R.id.btn_agree_statement_term)
+    }
+    private val animSplash  by lazy {
+        AnimationUtils.loadAnimation(this, R.anim.anim_splash)
+    }
+    private val sharedPreferences by lazy {
+        getSharedPreferences(SHARED_PREFERENCE_NAME, Context.MODE_PRIVATE)
+    }
+    private val isAgreeStatementTerm  by lazy {
+        sharedPreferences.getBoolean("isAgreeStatementTerm", false)
+    }
+
+    private val textStatementTermContentString by lazy {
+        getString(R.string.content_statement_term)
+    }
+    private val linkSpannableStringSetter by lazy {
+        LinkSpannableStringSetter(
+            textStatementTermContent, textStatementTermContentString, this
+        )
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -44,21 +82,6 @@ class SplashActivity : AppCompatActivity() {
             insets
         }
 
-        val icSplash = findViewById<ImageView>(R.id.ic_splash)
-        val textSplash = findViewById<TextView>(R.id.text_splash)
-        val bgStatementTerm = findViewById<ConstraintLayout>(R.id.bg_statement_term)
-        val textStatementTermContent = findViewById<TextView>(R.id.text_statement_term_content)
-        val btnDisagreeStatementTerm = findViewById<TextView>(R.id.btn_disagree_statement_term)
-        val btnAgreeStatementTerm = findViewById<TextView>(R.id.btn_agree_statement_term)
-        val animSplash = AnimationUtils.loadAnimation(this, R.anim.anim_splash)
-
-        val sharedPreferences = getSharedPreferences("user", Context.MODE_PRIVATE)
-        val isAgreeStatementTerm = sharedPreferences.getBoolean("isAgreeStatementTerm", false)
-
-        val textStatementTermContentString = getString(R.string.content_statement_term)
-        val linkSpannableStringSetter = LinkSpannableStringSetter(
-            textStatementTermContent, textStatementTermContentString, this
-        )
         linkSpannableStringSetter.set(
             LinkSpannableText(
                 resources.getInteger(R.integer.statementPosStart),
@@ -97,28 +120,32 @@ class SplashActivity : AppCompatActivity() {
             override fun onAnimationEnd(animation: Animation?) {
                 textSplash.alpha = 1f;
                 lifecycleScope.launch {
-                    withContext(Dispatchers.IO) {
-                        delay(1000);
-                        withContext(Dispatchers.Main) {
-                            when(isAgreeStatementTerm) {
-                                true -> {
-                                    val intent = Intent(this@SplashActivity, MainActivity::class.java)
-                                    startActivity(intent)
-                                    finish()
-                                }
-                                false -> {
-                                    icSplash.visibility = View.GONE
-                                    textSplash.visibility = View.GONE
-                                    bgStatementTerm.visibility = View.VISIBLE
-                                }
-                            }
-                        }
-                    }
+                    runAfterSplashAnimation()
                 }
             }
 
             override fun onAnimationRepeat(animation: Animation?) {}
         })
+    }
+
+    suspend fun runAfterSplashAnimation() {
+        withContext(Dispatchers.IO) {
+            delay(1000);
+            withContext(Dispatchers.Main) {
+                when(isAgreeStatementTerm) {
+                    true -> {
+                        val intent = Intent(this@SplashActivity, MainActivity::class.java)
+                        startActivity(intent)
+                        finish()
+                    }
+                    false -> {
+                        icSplash.visibility = View.GONE
+                        textSplash.visibility = View.GONE
+                        bgStatementTerm.visibility = View.VISIBLE
+                    }
+                }
+            }
+        }
     }
 
     private class LinkSpannableText(val posStart: Int, val posEnd: Int, val toastString: String)
@@ -151,7 +178,7 @@ class SplashActivity : AppCompatActivity() {
 
         private fun setForegroundColorSpan(linkSpannableText: LinkSpannableText) {
             spannableString.setSpan(
-                ForegroundColorSpan(context.getColor(R.color.firefly)),
+                ForegroundColorSpan(context.getColor(R.color.light_blue)),
                 linkSpannableText.posStart,
                 linkSpannableText.posEnd,
                 Spannable.SPAN_COMPOSING
@@ -160,7 +187,7 @@ class SplashActivity : AppCompatActivity() {
 
         private fun setBackgroundColorSpan(linkSpannableText: LinkSpannableText) {
             spannableString.setSpan(
-                BackgroundColorSpan(context.getColor(R.color.white_40)),
+                BackgroundColorSpan(context.getColor(R.color.light_gray)),
                 linkSpannableText.posStart,
                 linkSpannableText.posEnd,
                 Spannable.SPAN_COMPOSING
