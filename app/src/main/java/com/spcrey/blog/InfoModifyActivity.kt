@@ -1,8 +1,6 @@
 package com.spcrey.blog
 
-import android.app.Activity
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.provider.MediaStore
@@ -13,6 +11,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -34,7 +33,6 @@ class InfoModifyActivity : AppCompatActivity() {
     companion object {
         private const val TAG = "UpdateInfoActivity"
         private const val SHARED_PREFERENCE_NAME = "user"
-        private const val PICK_IMAGE_REQUEST = 1
     }
 
     private val imageAvatar by lazy {
@@ -88,10 +86,7 @@ class InfoModifyActivity : AppCompatActivity() {
         }
 
         imageAvatar.setOnClickListener {
-            val intent = Intent()
-            intent.type = "image/*"
-            intent.action = Intent.ACTION_GET_CONTENT
-            startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE_REQUEST)
+            galleryLauncher.launch("image/*");
         }
 
         btnUpdateInfo.setOnClickListener {
@@ -116,6 +111,25 @@ class InfoModifyActivity : AppCompatActivity() {
                 lifecycleScope.launch {
                     userLogout(token)
                 }
+            }
+        }
+    }
+
+    private val galleryLauncher = registerForActivityResult<String, Uri>(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { imageUri ->
+            val localPath = getRealPath(imageUri)
+            val file = localPath?.let {
+                File(it)
+            }
+            val fileBytes = FileInputStream(file).readBytes()
+            val fileBase64 = Base64.getEncoder().encodeToString(fileBytes)
+            CachedData.token?.let {token ->
+                lifecycleScope.launch {
+                    userUpdateAvatar(token, fileBase64, imageUri)
+                }
+
             }
         }
     }
@@ -248,8 +262,9 @@ class InfoModifyActivity : AppCompatActivity() {
                                 .load(filePath)
                                 .transform(CircleCrop())
                                 .into(imageAvatar)
+                            Toast.makeText(this@InfoModifyActivity, "头像更新成功", Toast.LENGTH_SHORT).show()
                         }
-                        EventBus.getDefault().post(MineFragment.UserInfoUpdateEvent ())
+                        EventBus.getDefault().post(MineFragment.UserInfoUpdateEvent())
                     } else -> {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(this@InfoModifyActivity, "参数错误", Toast.LENGTH_SHORT).show()
@@ -260,29 +275,6 @@ class InfoModifyActivity : AppCompatActivity() {
                 Log.d(TAG, "request failed: ${e.message}")
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@InfoModifyActivity, "请求异常", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
-
-
-    @Deprecated("Deprecated in Java")
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        if (requestCode == PICK_IMAGE_REQUEST && resultCode == Activity.RESULT_OK && data != null && data.data != null) {
-            CachedData.token?.let { token ->
-                val filePath = data.data
-                filePath?.let {
-                    val localPath = getRealPath(filePath)
-                    val file = localPath?.let {
-                        File(localPath)
-                    }
-                    val fileBytes = FileInputStream(file).readBytes()
-                    val fileBase64 = Base64.getEncoder().encodeToString(fileBytes)
-                    lifecycleScope.launch {
-                        userUpdateAvatar(token, fileBase64, filePath)
-                    }
                 }
             }
         }

@@ -194,13 +194,13 @@ class LoginByCodeActivity : AppCompatActivity() {
                     1 -> {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(this@LoginByCodeActivity, "登陆成功", Toast.LENGTH_SHORT).show()
+                            CachedData.token = commonData.data
+                            val edit = sharedPreferences.edit()
+                            edit.putString("token", commonData.data)
+                            edit.apply()
+                            EventBus.getDefault().post(MineFragment.UserInfoUpdateEvent())
+                            finish()
                         }
-                        EventBus.getDefault().post(MineFragment.UserInfoUpdateEvent())
-                        val edit = sharedPreferences.edit()
-                        CachedData.token = commonData.data
-                        edit.putString("token", commonData.data)
-                        edit.apply()
-                        finish()
                     } else -> {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(this@LoginByCodeActivity, "验证码错误", Toast.LENGTH_SHORT).show()

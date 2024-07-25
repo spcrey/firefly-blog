@@ -14,6 +14,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
@@ -70,10 +71,7 @@ class ArticlePublishActivity : AppCompatActivity() {
         }
 
         btnAddImage.setOnClickListener {
-            val intent = Intent()
-            intent.type = "image/*"
-            intent.action = Intent.ACTION_GET_CONTENT
-            startActivityForResult(Intent.createChooser(intent, "Select Picture"), PICK_IMAGE_REQUEST)
+            galleryLauncher.launch("image/*");
         }
 
         icBack.setOnClickListener {
@@ -122,28 +120,25 @@ class ArticlePublishActivity : AppCompatActivity() {
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-
-        if (requestCode == PICK_IMAGE_REQUEST && resultCode == Activity.RESULT_OK && data != null && data.data != null) {
-            val filePath = data.data
-            val localPath = filePath?.let { getRealPath(this, it) }
-            Log.d(TAG, "FilePath: ${filePath?.path}")
-            Log.d(TAG, "LocalFilePath: $localPath")
+    private val galleryLauncher = registerForActivityResult<String, Uri>(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { imageUri ->
+            val localPath = getRealPath(imageUri)
+            val file = localPath?.let {
+                File(it)
+            }
+            val fileBytes = FileInputStream(file).readBytes()
+            val fileBase64 = Base64.getEncoder().encodeToString(fileBytes)
             val layoutParams = imgLastImage.layoutParams
             layoutParams.width = resources.getDimensionPixelSize(R.dimen.dp48)
             imgLastImage.layoutParams = layoutParams
             imgLastImage.alpha = 0.4f
             Glide.with(this)
                 .asBitmap()
-                .load(filePath)
+                .load(imageUri)
                 .transform(CenterCrop(), RoundedCorners(dpToPx(12)))
                 .into(imgLastImage)
-            val file = localPath?.let {
-                File(it)
-            }
-            val fileBytes = FileInputStream(file).readBytes()
-            val fileBase64 = Base64.getEncoder().encodeToString(fileBytes)
             imageUrls.add(fileBase64)
             textImgNum.text = imageUrls.size.toString()
         }
@@ -153,9 +148,9 @@ class ArticlePublishActivity : AppCompatActivity() {
         return (dp * resources.displayMetrics.density).toInt()
     }
 
-    private fun getRealPath(context: Context, uri: Uri): String? {
+    private fun Context.getRealPath(uri: Uri): String? {
         var filePath: String? = null
-        val cursor = context.contentResolver.query(uri, null, null, null, null)
+        val cursor = contentResolver.query(uri, null, null, null, null)
         cursor?.use {
             it.moveToFirst()
             filePath = it.getString(it.getColumnIndexOrThrow(MediaStore.Images.Media.DATA))
