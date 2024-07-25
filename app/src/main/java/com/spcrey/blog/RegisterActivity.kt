@@ -21,46 +21,18 @@ class RegisterActivity : AppCompatActivity() {
         private const val TAG = "RegisterActivity"
     }
 
-    val textPhoneInput by lazy{
+    private val textPhoneInput by lazy{
         findViewById<EditText>(R.id.editText_phone_number)
     }
-    val editTextPassword by lazy{
+    private val editTextPassword by lazy{
         findViewById<EditText>(R.id.editText_password)
     }
-    val editTextPasswordSecond by lazy{
-        findViewById<EditText>(R.id.edit_text_password_second)
+    private val editTextRePassword by lazy{
+        findViewById<EditText>(R.id.edit_text_re_password)
     }
 
-    data class PhoneNumberPassword(
-        val phoneNumber: String, val password: String, val passwordSecond: String
-    )
-
-    fun validatePhoneNumberPassword(): PhoneNumberPassword? {
-        val phoneNumber = textPhoneInput.text.toString()
-        if (phoneNumber == null) {
-            return null
-        }
-        if (phoneNumber.length != 11) {
-            return null
-        }
-        val password = editTextPassword.text.toString()
-        if (password == null) {
-            return null
-        }
-        val passwordSecond = editTextPasswordSecond.text.toString()
-        if (passwordSecond == null) {
-            return null
-        }
-        if (!password.equals(passwordSecond)) {
-            return null
-        }
-        if (password.length < 8) {
-            return null
-        }
-        if (password.length > 24) {
-            return null
-        }
-        return PhoneNumberPassword(phoneNumber, password, passwordSecond)
+    private val btnRegister by lazy{
+        findViewById<View>(R.id.btn_register)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -72,52 +44,75 @@ class RegisterActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        val btnRegister = findViewById<View>(R.id.btn_register)
+
         btnRegister.setOnClickListener {
-            val phoneNumberPassword = validatePhoneNumberPassword()
-            if (phoneNumberPassword == null) {
-                Toast.makeText(this@RegisterActivity, "手机号或密码格式错误", Toast.LENGTH_SHORT).show()
-            } else {
+            val commonData = validateEditText()
+            commonData.data?.let { userRegisterForm ->
                 lifecycleScope.launch {
-                    withContext(Dispatchers.IO) {
-                        try {
-                            val commonData = ServerApiManager.apiService.userRegister(
-                                ServerApiManager.UserRegisterForm(
-                                    phoneNumberPassword.phoneNumber,
-                                    phoneNumberPassword.password,
-                                    phoneNumberPassword.passwordSecond
-                                )).await()
-                            if (commonData.code == 1) {
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(
-                                        this@RegisterActivity,
-                                        "注册成功",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                                finish()
-                            } else {
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(
-                                        this@RegisterActivity,
-                                        "注册失败",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
-                        }catch (e: Exception) {
-                            Log.d(TAG, "request failed: ${e.message}")
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(
-                                    this@RegisterActivity,
-                                    "注册失败",
-                                    Toast.LENGTH_SHORT
-                                ).show()
-                            }
+                    userRegister(userRegisterForm)
+                }
+            } ?: run {
+                Toast.makeText(
+                    this@RegisterActivity, commonData.message, Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    private suspend fun userRegister(userRegisterForm: ServerApiManager.UserRegisterForm) {
+        withContext(Dispatchers.IO) {
+            try {
+                val commonData = ServerApiManager.apiService.userRegister(userRegisterForm).await()
+                when (commonData.code) {
+                    1 -> {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                this@RegisterActivity,
+                                "注册成功",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            finish()
+                        }
+                    } else -> {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                this@RegisterActivity,
+                                "该手机号已注册",
+                                Toast.LENGTH_SHORT
+                            ).show()
                         }
                     }
                 }
+
+            } catch (e: Exception) {
+                Log.d(TAG, "request failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(
+                        this@RegisterActivity,
+                        "请求异常",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                }
             }
         }
+    }
+
+    private fun validateEditText(): ServerApiManager.CommonData<ServerApiManager.UserRegisterForm?> {
+        val phoneNumber = textPhoneInput.text.toString()
+        if (phoneNumber.length != 11) {
+            return ServerApiManager.CommonData(0, "手机号格式不正确", null)
+        }
+        val password = editTextPassword.text.toString()
+        val rePassword = editTextRePassword.text.toString()
+        if (password != rePassword) {
+            return ServerApiManager.CommonData(0, "两次密码输入不一致", null)
+        }
+        val passwordPattern = Regex("^(?=.*[a-zA-Z]).{8,24}$")
+        if (!password.matches(passwordPattern)) {
+            return ServerApiManager.CommonData(0, "密码需要8-24位，且需要包含字母", null)
+        }
+        return ServerApiManager.CommonData(0, "操纵失败", ServerApiManager.UserRegisterForm(
+            phoneNumber, password, rePassword
+        ))
     }
 }

@@ -103,7 +103,7 @@ class LoginByPasswordActivity : AppCompatActivity() {
             edit.putString("token", data)
             edit.apply()
             Toast.makeText(
-                this@LoginByPasswordActivity, "登陆成功", Toast.LENGTH_SHORT
+                this@LoginByPasswordActivity, "登录成功", Toast.LENGTH_SHORT
             ).show()
             EventBus.getDefault().post(MineFragment.UserInfoUpdateEvent())
             finish()

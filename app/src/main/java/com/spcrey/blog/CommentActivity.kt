@@ -33,14 +33,28 @@ class CommentActivity : AppCompatActivity() {
         private const val TAG = "CommentActivity"
     }
 
-    fun Context.dpToPx(dp: Int): Int {
-        return (dp * resources.displayMetrics.density).toInt()
-    }
-
     private val comments: MutableList<ServerApiManager.ArticleComment> = mutableListOf()
 
     private val commentAdapter by lazy {
         CommentAdapter(comments)
+    }
+    private val articleId by lazy {
+        intent.getIntExtra("articleId", 0)
+    }
+    private val rootView by lazy {
+        findViewById<ConstraintLayout>(R.id.main)
+    }
+    private val btnComment by lazy {
+        findViewById<TextView>(R.id.btn_comment)
+    }
+    private val recyclerView by lazy {
+        findViewById<RecyclerView>(R.id.recycler_view)
+    }
+    private val editTextContent by lazy {
+        findViewById<EditText>(R.id.editText_comment)
+    }
+    private val icBack by lazy {
+        findViewById<ImageView>(R.id.ic_back)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,123 +66,57 @@ class CommentActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        val id = intent.getIntExtra("id", 0)
-        val rootView = findViewById<ConstraintLayout>(R.id.main)
-        val btnSend = findViewById<TextView>(R.id.btn_send)
+
+        recyclerView.layoutManager = StaggeredGridLayoutManager(
+            1, StaggeredGridLayoutManager.VERTICAL
+        )
+        recyclerView.adapter = commentAdapter
+
+        icBack.setOnClickListener {
+            finish()
+        }
 
         rootView.viewTreeObserver.addOnGlobalLayoutListener {
             val r = Rect()
             rootView.getWindowVisibleDisplayFrame(r)
             val screenHeight = rootView.rootView.height
-
-            // 计算键盘的高度
             val keypadHeight: Int = screenHeight - r.bottom
-
-            // 如果键盘弹出
-            if (keypadHeight > screenHeight * 0.15) { // 判断键盘高度是否大于屏幕高度的15%
-                // 调整底部视图的约束条件，使其底部与键盘顶部对齐
-                val params = btnSend.layoutParams as ConstraintLayout.LayoutParams
-                params.bottomMargin = keypadHeight // 根据需要调整底部的 margin
-                btnSend.layoutParams = params
+            if (keypadHeight > screenHeight * 0.15) {
+                val params = btnComment.layoutParams as ConstraintLayout.LayoutParams
+                params.bottomMargin = keypadHeight
+                btnComment.layoutParams = params
             } else {
-                // 键盘隐藏时，恢复原始约束条件
-                val params = btnSend.layoutParams as ConstraintLayout.LayoutParams
-                params.bottomMargin = dpToPx(12) // 恢复为原始的 margin
-                btnSend.layoutParams = params
+                val params = btnComment.layoutParams as ConstraintLayout.LayoutParams
+                params.bottomMargin = dpToPx(12)
+                btnComment.layoutParams = params
             }
         }
 
-        btnSend.setOnClickListener {
-            lifecycleScope.launch {
-                withContext(Dispatchers.IO) {
-                    try {
-                        val token = CachedData.token
-                        val editTextContent = findViewById<EditText>(R.id.bg_comment_send)
-                        val content = editTextContent.text.toString()
-                        Log.d(TAG, content)
-                        if (token != null && content!="") {
-                            val commonData = ServerApiManager.apiService.articleComment(
-                                token, ServerApiManager.ArticleCommentsForm(content, id)
-                            ).await()
-                            Log.d(TAG, commonData.toString())
-                            if (commonData.code==1) {
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(
-                                        this@CommentActivity,
-                                        "发布成功",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                    editTextContent.text.clear()
-                                }
-                                if (id != 0) {
-                                    val commonDataComments = ServerApiManager.apiService.articleListComments(
-                                        id
-                                    ).await()
-                                    if (commonDataComments.code == 1) {
-                                        comments.clear()
-                                        comments.addAll(commonDataComments.data)
-                                        Log.d(TAG, comments.toString())
-                                        withContext(Dispatchers.Main) {
-                                            commentAdapter.notifyDataSetChanged()
-                                        }
-                                    }
-                                }
-                            } else {
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(
-                                        this@CommentActivity,
-                                        "发布失败",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-                                }
-                            }
-                        } else {
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(this@CommentActivity, "请先登录", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-
-                    } catch (e: Exception) {
-                        Log.d(TAG, "error: ${e.message}")
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(
-                                this@CommentActivity,
-                                "发布失败",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                        }
+        btnComment.setOnClickListener {
+            CachedData.token?.let { token ->
+                val content = editTextContent.text.toString()
+                if (content == "") {
+                    Toast.makeText(
+                        this@CommentActivity,
+                        "发布内容不能为空",
+                        Toast.LENGTH_SHORT
+                    ).show()
+                } else {
+                    lifecycleScope.launch {
+                        articleComment(token, content)
                     }
                 }
+            } ?: run {
+                Toast.makeText(
+                    this@CommentActivity,
+                    "请先登录",
+                    Toast.LENGTH_SHORT
+                ).show()
             }
         }
 
-
-        val recyclerView = findViewById<RecyclerView>(R.id.recycler_view)
-        recyclerView.layoutManager = StaggeredGridLayoutManager(
-            1, StaggeredGridLayoutManager.VERTICAL
-        )
-        recyclerView.adapter = commentAdapter
         lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                try {
-                    val token = CachedData.token
-                    if (id != 0) {
-                        val commonData = ServerApiManager.apiService.articleListComments(
-                            id
-                        ).await()
-                        if (commonData.code == 1) {
-                            comments.addAll(commonData.data)
-                            Log.d(TAG, comments.toString())
-                            withContext(Dispatchers.Main) {
-                                commentAdapter.notifyDataSetChanged()
-                            }
-                        }
-                    }
-
-                } catch (e: Exception) {
-                    Log.d(TAG, "error: ${e.message}")
-                }
-            }
+            articleListComments()
         }
     }
 
@@ -180,10 +128,77 @@ class CommentActivity : AppCompatActivity() {
                 .load(item.userAvatarUrl)
                 .transform(CircleCrop())
                 .into(imgUserAvatar)
-            val textUserNickname = holder.getView<TextView>(R.id.text_nickname_title)
+            val textUserNickname = holder.getView<TextView>(R.id.text_user_nickname)
             textUserNickname.text = item.userNickname
             val textContent = holder.getView<TextView>(R.id.text_content)
             textContent.text = item.content
         }
+    }
+
+    private suspend fun articleListComments() {
+        withContext(Dispatchers.IO) {
+            try {
+                val commonData = ServerApiManager.apiService.articleListComments(
+                    articleId).await()
+                when(commonData.code) {
+                    1 -> {
+                        comments.clear()
+                        comments.addAll(commonData.data)
+                        withContext(Dispatchers.Main) {
+                            commentAdapter.notifyDataSetChanged()
+                        }
+                    } else -> {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@CommentActivity, "参数错误", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "request failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@CommentActivity, "请求异常", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private suspend fun articleComment(token: String, content: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                val commonData = ServerApiManager.apiService.articleComment(
+                    token, ServerApiManager.ArticleCommentForm(content, articleId)
+                ).await()
+                when (commonData.code) {
+                    1 -> {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(
+                                this@CommentActivity,
+                                "发布成功",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            editTextContent.text.clear()
+                            articleListComments()
+                        }
+                    } else -> {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(
+                            this@CommentActivity,
+                            "参数错误",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                    }
+                }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "request failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@CommentActivity, "请求异常", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private fun Context.dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
     }
 }

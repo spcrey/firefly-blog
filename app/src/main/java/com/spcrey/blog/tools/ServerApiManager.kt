@@ -126,7 +126,7 @@ object ServerApiManager {
         @POST("/article/comment")
         fun articleComment(
             @Header("Authorization") token: String,
-            @Body form: ArticleCommentsForm
+            @Body form: ArticleCommentForm
         ): Deferred<CommonData<String>>
     }
 
@@ -158,7 +158,7 @@ object ServerApiManager {
 
     data class ArticleLikeForm(val id: Int)
 
-    data class ArticleCommentsForm(val content: String, val articleId: Int)
+    data class ArticleCommentForm(val content: String, val articleId: Int)
 
     data class UserFollowForm(val followedUserId: Int)
 

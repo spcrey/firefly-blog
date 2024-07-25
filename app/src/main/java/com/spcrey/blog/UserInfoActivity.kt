@@ -24,6 +24,37 @@ class UserInfoActivity : AppCompatActivity() {
         private const val TAG = "UserInfoActivity"
     }
 
+    private val userId by lazy {
+        intent.getIntExtra("userId", 0)
+    }
+    private val textNickname by lazy {
+        findViewById<TextView>(R.id.text_user_nickname)
+    }
+    private val textUserPersonalSignature by lazy {
+        findViewById<TextView>(R.id.text_user_personal_signature)
+    }
+    private val imgUserAvatar by lazy {
+        findViewById<ImageView>(R.id.img_user_avatar)
+    }
+    private val textUserEmailContent by lazy {
+        findViewById<TextView>(R.id.text_user_email_content)
+    }
+    private val btnChat by lazy {
+        findViewById<TextView>(R.id.btn_chat)
+    }
+    private val btnFollow by lazy {
+        findViewById<TextView>(R.id.btn_follow)
+    }
+    private val icBack by lazy {
+        findViewById<ImageView>(R.id.ic_back)
+    }
+
+    enum class FollowStatus {
+        FOLLOW, UN_FOLLOW
+    }
+
+    private var followStatus = FollowStatus.UN_FOLLOW
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -33,106 +64,133 @@ class UserInfoActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        val userId = intent.getIntExtra("userId", 0)
-        val textNickname = findViewById<TextView>(R.id.text_nickname_title)
-        val textFanNum = findViewById<TextView>(R.id.text_user_phone_number)
-        val imgAvatar = findViewById<ImageView>(R.id.img_user_avatar)
-        val textEmail = findViewById<TextView>(R.id.text_email)
-        val btnChat = findViewById<TextView>(R.id.btn_chat)
+
+        icBack.setOnClickListener {
+            finish()
+        }
+
         btnChat.setOnClickListener {
             Toast.makeText(this@UserInfoActivity, "该功能暂未实现", Toast.LENGTH_SHORT).show()
         }
-        val btnFollow = findViewById<TextView>(R.id.btn_follow)
-        var userInfo: ServerApiManager.User? = null
 
         lifecycleScope.launch {
-            withContext(Dispatchers.IO) {
-                try {
-                    val token: String = CachedData.token?:""
-                    val commonData = ServerApiManager.apiService.userInfoOther(
-                        token, userId
-                    ).await()
-                    if (commonData.code == 1) {
-                        userInfo = commonData.data
-                        withContext(Dispatchers.Main) {
-                            Glide.with(this@UserInfoActivity)
-                                .load(commonData.data.avatarUrl)
-                                .transform(CircleCrop())
-                                .into(imgAvatar)
-                            textNickname.text = userInfo!!.nickname
-                            textFanNum.text = userInfo!!.personalSignature
-                            textEmail.text =   userInfo!!.email?:""
-                            Log.d(TAG, userInfo.toString())
-                            if ( userInfo!!.isFollowed==null ||  userInfo!!.isFollowed==false) {
-                                btnFollow.text = "点击关注"
-                            } else {
-                                btnFollow.text = "已关注"
-                            }
-                        }
-                    } else {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(this@UserInfoActivity, "获取信息失败", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                } catch (e: Exception) {
-                    Log.d(TAG, "error: ${e.message}")
-                    withContext(Dispatchers.Main) {
-                        Toast.makeText(this@UserInfoActivity, "获取信息失败", Toast.LENGTH_SHORT).show()
-                    }
-                }
-            }
+            userInfoOther()
         }
 
         btnFollow.setOnClickListener {
-            userInfo?.let { ii ->
-                val token: String = CachedData.token?:""
-                val isFollowed = ii.isFollowed
-                Log.d(TAG, isFollowed.toString())
-                if (isFollowed==null || token=="") {
-                    Toast.makeText(this@UserInfoActivity, "未登录", Toast.LENGTH_SHORT).show()
-                } else if (isFollowed==false) {
-                    if (userId == CachedData.user!!.id) {
-                        Toast.makeText(this@UserInfoActivity, "不能关注自己呀", Toast.LENGTH_SHORT).show()
+            CachedData.token?.let { token ->
+                CachedData.user?.let { user ->
+                    if (userId == user.id) {
+                        Toast.makeText(this@UserInfoActivity, "不能关注自己", Toast.LENGTH_SHORT).show()
                     } else {
-                        lifecycleScope.launch {
-                            withContext(Dispatchers.IO) {
-                                try {
-                                    val commonData = ServerApiManager.apiService.userFollow(
-                                        token, ServerApiManager.UserFollowForm(userId)
-                                    ).await()
-                                    if (commonData.code == 1) {
-                                        userInfo!!.isFollowed = true
-                                        withContext(Dispatchers.Main) {
-                                            btnFollow.text = "已关注"
-                                        }
-                                    }
-                                } catch (e: Exception) {
-                                    Log.d(TAG, "error: ${e.message}")
+                        when (followStatus) {
+                            FollowStatus.UN_FOLLOW -> {
+                                lifecycleScope.launch {
+                                    userFollow(token)
                                 }
                             }
-                        }
-                    }
-                } else {
-                    lifecycleScope.launch {
-                        withContext(Dispatchers.IO) {
-                            try {
-                                val commonData = ServerApiManager.apiService.userUnfollow(
-                                    token, ServerApiManager.UserFollowForm(userId)
-                                ).await()
-                                if (commonData.code == 1) {
-                                    userInfo!!.isFollowed = false
-                                    withContext(Dispatchers.Main) {
-                                        btnFollow.text = "点击关注"
-                                    }
-                                } else {
-                                    Log.d(TAG, "error: ${commonData.message}")
+                            FollowStatus.FOLLOW -> {
+                                lifecycleScope.launch {
+                                    userUnfollow(token)
                                 }
-                            } catch (e: Exception) {
-                                Log.d(TAG, "error: ${e.message}")
                             }
                         }
                     }
                 }
+            } ?: run {
+                Toast.makeText(this@UserInfoActivity, "未登录", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private suspend fun userInfoOther() {
+        withContext(Dispatchers.IO) {
+            try {
+                val commonData = ServerApiManager.apiService.userInfoOther(
+                    CachedData.token, userId
+                ).await()
+                when (commonData.code) {
+                    1 -> {
+                        withContext(Dispatchers.Main) {
+                            val user = commonData.data
+                            Glide.with(this@UserInfoActivity)
+                                .load(user.avatarUrl)
+                                .transform(CircleCrop())
+                                .into(imgUserAvatar)
+                            textNickname.text = user.nickname
+                            textUserPersonalSignature.text = user.personalSignature
+                            textUserEmailContent.text = user.email
+                            if (user.isFollowed == null || user.isFollowed == false) {
+                                btnFollow.text = "点击关注"
+                                followStatus = FollowStatus.UN_FOLLOW
+                            } else {
+                                btnFollow.text = "已关注"
+                                followStatus = FollowStatus.FOLLOW
+                            }
+                        }
+                    } else -> {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@UserInfoActivity, "参数错误", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "request failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@UserInfoActivity, "请求异常", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private suspend fun userFollow(token: String) {
+        try {
+            val commonData = ServerApiManager.apiService.userFollow(
+                token,
+                ServerApiManager.UserFollowForm(userId)
+            ).await()
+            when (commonData.code) {
+                1 -> {
+                    followStatus  = FollowStatus.FOLLOW
+                    withContext(Dispatchers.Main) {
+                        btnFollow.text = "已关注"
+                    }
+                } else -> {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@UserInfoActivity, "参数错误", Toast.LENGTH_SHORT).show()
+                }
+            }
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "request failed: ${e.message}")
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@UserInfoActivity, "请求异常", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private suspend fun userUnfollow(token: String) {
+        try {
+            val commonData = ServerApiManager.apiService.userUnfollow(
+                token,
+                ServerApiManager.UserFollowForm(userId)
+            ).await()
+            when (commonData.code) {
+                1 -> {
+                    followStatus  = FollowStatus.UN_FOLLOW
+                    withContext(Dispatchers.Main) {
+                        btnFollow.text = "点击关注"
+                    }
+                } else -> {
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@UserInfoActivity, "参数错误", Toast.LENGTH_SHORT).show()
+                }
+            }
+            }
+        } catch (e: Exception) {
+            Log.d(TAG, "request failed: ${e.message}")
+            withContext(Dispatchers.Main) {
+                Toast.makeText(this@UserInfoActivity, "请求异常", Toast.LENGTH_SHORT).show()
             }
         }
     }

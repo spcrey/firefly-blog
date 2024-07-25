@@ -12,6 +12,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
@@ -30,6 +31,30 @@ class LoginByCodeActivity : AppCompatActivity() {
         private const val SHARED_PREFERENCE_NAME = "user"
     }
 
+    private val sharedPreferences by lazy {
+        getSharedPreferences(SHARED_PREFERENCE_NAME, MODE_PRIVATE)
+    }
+    private val editTextPhoneNumber by lazy {
+        findViewById<EditText>(R.id.editText_phone_number)
+    }
+    private val editTextCode by lazy {
+        findViewById<EditText>(R.id.editText_code)
+    }
+    private val btnCodeGet by lazy {
+        findViewById<TextView>(R.id.btn_code_get)
+    }
+    private val btnLogin by lazy {
+        findViewById<View>(R.id.btn_login)
+    }
+    private  val textLogin by lazy {
+        findViewById<TextView>(R.id.text_login)
+    }
+    private val btnLoginByPassword by lazy {
+        findViewById<TextView>(R.id.btn_login_by_password)
+    }
+    private var phoneNumber: String? = null
+    private var code: String? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -40,15 +65,6 @@ class LoginByCodeActivity : AppCompatActivity() {
             insets
         }
 
-        val sharedPreferences = getSharedPreferences(SHARED_PREFERENCE_NAME, MODE_PRIVATE)
-        val editTextPhoneNumber = findViewById<EditText>(R.id.editText_phone_number)
-        val editTextCode = findViewById<EditText>(R.id.editText_code)
-        val btnCodeGet = findViewById<TextView>(R.id.btn_code_get)
-        val btnLogin = findViewById<View>(R.id.btn_login)
-        var phoneNumber: String? = null
-        var code: String? = null
-
-        val btnLoginByPassword = findViewById<TextView>(R.id.btn_login_by_password)
         btnLoginByPassword.setOnClickListener {
             val intent = Intent(this, LoginByPasswordActivity::class.java)
             startActivity(intent)
@@ -67,29 +83,17 @@ class LoginByCodeActivity : AppCompatActivity() {
             override suspend fun complete() {
                 withContext(Dispatchers.Main) {
                     btnCodeGet.text = getString(R.string.text_code_text)
-                    btnCodeGet.alpha = 1.0f
+                    btnCodeGet.alpha = 0.8f
                     btnCodeGet.isEnabled = true
                 }
             }
         })
 
         btnCodeGet.setOnClickListener {
-            phoneNumber?.let {
+            phoneNumber?.let { phoneNumber ->
                 CodeTimer.start()
                 lifecycleScope.launch {
-                    withContext(Dispatchers.IO) {
-                        try {
-                            ServerApiManager.apiService.userSendSms(ServerApiManager.UserSendSmsForm(phoneNumber!!)).await().data
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(this@LoginByCodeActivity, "验证码发送成功", Toast.LENGTH_SHORT).show()
-                            }
-                        } catch (e: Exception) {
-                            Log.d(TAG, "request failed: ${e.message}")
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(this@LoginByCodeActivity, "验证码发送失败", Toast.LENGTH_SHORT).show()
-                            }
-                        }
-                    }
+                    userSendSms(phoneNumber)
                 }
             } ?: run {
                 Toast.makeText(this, "手机号格式不正确", Toast.LENGTH_SHORT).show()
@@ -97,39 +101,10 @@ class LoginByCodeActivity : AppCompatActivity() {
         }
 
         btnLogin.setOnClickListener {
-            phoneNumber?.let { phoneNumber->
-                code?.let { code->
+            phoneNumber?.let { phoneNumber ->
+                code?.let { code ->
                     lifecycleScope.launch {
-                        withContext(Dispatchers.IO) {
-                            try {
-                                val commonData = ServerApiManager.apiService.userLoginByCode(ServerApiManager.UserLoginByCodeForm(
-                                    phoneNumber, code
-                                )).await()
-                                when(commonData.code) {
-                                    1 -> {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(this@LoginByCodeActivity, "登陆成功", Toast.LENGTH_SHORT).show()
-                                        }
-                                        EventBus.getDefault().post(MineFragment.UserInfoUpdateEvent())
-                                        val edit = sharedPreferences.edit()
-                                        CachedData.token = commonData.data
-                                        Log.d(TAG, "token: ${commonData.data}")
-                                        edit.putString("token", commonData.data)
-                                        edit.apply()
-                                        finish()
-                                    } else -> {
-                                        withContext(Dispatchers.Main) {
-                                            Toast.makeText(this@LoginByCodeActivity, "验证码错误", Toast.LENGTH_SHORT).show()
-                                        }
-                                    }
-                                }
-                            } catch (e: Exception) {
-                                Log.d(TAG, "request failed: ${e.message}")
-                                withContext(Dispatchers.Main) {
-                                    Toast.makeText(this@LoginByCodeActivity, "请求异常", Toast.LENGTH_SHORT).show()
-                                }
-                            }
-                        }
+                        userLoginByCode(phoneNumber, code)
                     }
                 }?: run {
                     Toast.makeText(this, "验证码格式不正确", Toast.LENGTH_SHORT).show()
@@ -142,10 +117,18 @@ class LoginByCodeActivity : AppCompatActivity() {
         editTextPhoneNumber.addTextChangedListener(object : TextWatcher{
             override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) { }
             override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
-                phoneNumber = if (p0 != null && p0.length==11) {
-                    p0.toString()
+                if (p0 != null && p0.length == 11) {
+                    phoneNumber = p0.toString()
+                    code?.let {
+                        btnLogin.background = ContextCompat.getDrawable(
+                            this@LoginByCodeActivity, R.drawable.btn_light_blue_r8dp)
+                        textLogin.alpha = 1f
+                    }
                 } else {
-                    null
+                    phoneNumber = null
+                    btnLogin.background = ContextCompat.getDrawable(
+                        this@LoginByCodeActivity, R.drawable.bg_deep_blue_r8dp)
+                    textLogin.alpha = 0.6f
                 }
             }
             override fun afterTextChanged(p0: Editable?) { }
@@ -154,10 +137,18 @@ class LoginByCodeActivity : AppCompatActivity() {
         editTextCode.addTextChangedListener(object : TextWatcher{
             override fun beforeTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) { }
             override fun onTextChanged(p0: CharSequence?, p1: Int, p2: Int, p3: Int) {
-                code = if (p0 != null && p0.length==6) {
-                    p0.toString()
+                if (p0 != null && p0.length == 6) {
+                    code = p0.toString()
+                    phoneNumber?.let {
+                        btnLogin.background = ContextCompat.getDrawable(
+                            this@LoginByCodeActivity, R.drawable.btn_light_blue_r8dp)
+                        textLogin.alpha = 1f
+                    }
                 } else {
-                    null
+                    code = null
+                    btnLogin.background = ContextCompat.getDrawable(
+                        this@LoginByCodeActivity, R.drawable.bg_deep_blue_r8dp)
+                    textLogin.alpha = 0.6f
                 }
             }
             override fun afterTextChanged(p0: Editable?) { }
@@ -167,5 +158,61 @@ class LoginByCodeActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         CodeTimer.clearListener()
+    }
+
+    private suspend fun userSendSms(phoneNumber: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                val commonData = ServerApiManager.apiService.userSendSms(ServerApiManager.UserSendSmsForm(phoneNumber)).await()
+                when (commonData.code) {
+                    1 -> {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@LoginByCodeActivity, "验证码发送成功", Toast.LENGTH_SHORT).show()
+                        }
+                    } else -> {
+                    withContext(Dispatchers.Main) {
+                        Toast.makeText(this@LoginByCodeActivity, "参数错误", Toast.LENGTH_SHORT).show()
+                    }
+                }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "request failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@LoginByCodeActivity, "请求异常", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private suspend fun userLoginByCode(phoneNumber: String, code: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                val commonData = ServerApiManager.apiService.userLoginByCode(ServerApiManager.UserLoginByCodeForm(
+                    phoneNumber, code
+                )).await()
+                when(commonData.code) {
+                    1 -> {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@LoginByCodeActivity, "登陆成功", Toast.LENGTH_SHORT).show()
+                        }
+                        EventBus.getDefault().post(MineFragment.UserInfoUpdateEvent())
+                        val edit = sharedPreferences.edit()
+                        CachedData.token = commonData.data
+                        edit.putString("token", commonData.data)
+                        edit.apply()
+                        finish()
+                    } else -> {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@LoginByCodeActivity, "验证码错误", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "request failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@LoginByCodeActivity, "请求异常", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
     }
 }

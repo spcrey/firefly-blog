@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <color name="firefly">#FF33FFDA</color>
-    <color name="light_blue">#FF16B8FE</color>
+    <color name="light_blue">#FF1B9DD4</color>
     <color name="deep_blue">#FF2182AC</color>
     <color name="light_gray">#FF454545</color>
     <color name="deep_gray">#FF313131</color>

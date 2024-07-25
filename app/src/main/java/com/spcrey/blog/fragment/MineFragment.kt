@@ -13,6 +13,7 @@ import android.widget.Toast
 import androidx.lifecycle.lifecycleScope
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CircleCrop
+import com.spcrey.blog.ArticlePublishActivity
 import com.spcrey.blog.LoginByCodeActivity
 import com.spcrey.blog.R
 import com.spcrey.blog.InfoModifyActivity
@@ -44,10 +45,16 @@ class MineFragment : Fragment() {
         view.findViewById<TextView>(R.id.text_to_login)
     }
     private val textUserNickname by lazy {
-        view.findViewById<TextView>(R.id.text_nickname_title)
+        view.findViewById<TextView>(R.id.text_user_nickname)
     }
     private val textUserPhoneNumber by lazy {
-        view.findViewById<TextView>(R.id.text_user_phone_number)
+        view.findViewById<TextView>(R.id.text_user_personal_signature)
+    }
+    private val btnToSendArticle by lazy {
+        view.findViewById<View>(R.id.btn_to_send_article)
+    }
+    private val textToSendArticle by lazy {
+        view.findViewById<TextView>(R.id.text_to_send_article)
     }
 
     override fun onCreateView(
@@ -74,6 +81,11 @@ class MineFragment : Fragment() {
                     startActivity(intent)
                 }
             }
+        }
+
+        btnToSendArticle.setOnClickListener {
+            val intent = Intent(context, ArticlePublishActivity::class.java)
+            startActivity(intent)
         }
     }
 
@@ -131,6 +143,8 @@ class MineFragment : Fragment() {
             textUserPhoneNumber.text = user.phoneNumber
             status = Status.LOGIN
             textToLogin.text = "去修改信息"
+            btnToSendArticle.visibility = View.VISIBLE
+            textToSendArticle.visibility = View.VISIBLE
         }
     }
 
@@ -143,6 +157,8 @@ class MineFragment : Fragment() {
         textToLogin.text = getString(R.string.text_to_login)
         imgUserAvatar.setImageResource(R.drawable.bg_circle_white)
         imgUserAvatar.alpha = 0.6f
+        btnToSendArticle.visibility = View.GONE
+        textToSendArticle.visibility = View.GONE
         status = Status.NOT_LOGIN
     }
 

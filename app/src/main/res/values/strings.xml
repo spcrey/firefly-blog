@@ -35,4 +35,6 @@
     <integer name="statementPosEnd">49</integer>
     <integer name="termPosStart">50</integer>
     <integer name="termPosEnd">56</integer>
+    <!-- TODO: Remove or change this placeholder text -->
+    <string name="hello_blank_fragment">Hello blank fragment</string>
 </resources>

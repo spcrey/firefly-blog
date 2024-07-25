@@ -1,7 +1,6 @@
 package com.spcrey.blog
 
 import android.content.Context
-import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
@@ -19,6 +18,7 @@ import com.spcrey.blog.fragment.MineFragment
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.ServerApiManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.greenrobot.eventbus.EventBus
@@ -82,14 +82,21 @@ class MainActivity : AppCompatActivity() {
                 userInfo(token)
             }
         }
-
         lifecycleScope.launch {
-            articleList()
+            refreshArticleList()
         }
 
         supportFragmentManager.beginTransaction().setReorderingAllowed(true).add(
             R.id.fragment_content, HomePageFragment::class.java, null, TAG
         ).commit()
+
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                delay(100)
+                EventBus.getDefault().post(HomePageFragment.ArticleAdapterUpdateEvent())
+            }
+        }
+
 
         bgHomePage.setOnClickListener {
             textTitleBar.text = getString(R.string.title_home)
@@ -156,7 +163,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private suspend fun articleList() {
+    private suspend fun refreshArticleList() {
         withContext(Dispatchers.IO) {
             try {
                 val commonData =
@@ -165,7 +172,8 @@ class MainActivity : AppCompatActivity() {
                     1 -> {
                         CachedData.articles.clear()
                         CachedData.articles.addAll(commonData.data.items)
-                        EventBus.getDefault().post(HomePageFragment.DataLoadEvent())
+                        CachedData.currentPageNum = 1
+                        EventBus.getDefault().post(HomePageFragment.ArticleAdapterUpdateEvent())
                     }
                     else -> {
                         withContext(Dispatchers.Main) {
