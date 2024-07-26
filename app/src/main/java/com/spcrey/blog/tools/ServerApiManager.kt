@@ -128,7 +128,22 @@ object ServerApiManager {
             @Header("Authorization") token: String,
             @Body form: ArticleCommentForm
         ): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @POST("/message/sendText")
+        fun messageSendText(
+            @Header("Authorization") token: String,
+            @Body form: MessageSendTextForm
+        ): Deferred<CommonData<String>>
+
+        @Headers("content-type: application/json")
+        @GET("/message/list")
+        fun messageList(
+            @Header("Authorization") token: String,
+            @Query("lastId") lastId: Int
+        ): Deferred<CommonData<MultiUserMessageList>>
     }
+
 
     val apiService: ApiService = retrofit.create(ApiService::class.java)
 
@@ -137,6 +152,8 @@ object ServerApiManager {
     data class ArticleAddForm(val content: String, val imageUrls: MutableList<String>)
 
     data class UserSendSmsForm(val phoneNumber: String)
+
+    data class MessageSendTextForm(val textContent: String, val receivingUserId: Int)
 
     data class UserLoginByCodeForm(val phoneNumber: String, val code: String)
 
@@ -182,5 +199,21 @@ object ServerApiManager {
     data class ArticleComment(
         val id: Int, val content: String, val userNickname: String, val userAvatarUrl: String,
         val createTime: String
+    )
+
+    data class Message(
+        val id: Int, val textContent: String?, val imageUrl: String?,
+        val sendingUserId: String, val receivingUserId: String,
+        val createTime: String,
+        val isSendingUser: Boolean
+    )
+
+    data class UserMessageList(
+        val withUserId: Int, val userAvatarUrl: String, val userNickname: String,
+        val lastMessageId: String, val messages: MutableList<Message>
+    )
+
+    data class MultiUserMessageList(
+        var userMessageLists: MutableList<UserMessageList>, var lastMessageId: Int
     )
 }

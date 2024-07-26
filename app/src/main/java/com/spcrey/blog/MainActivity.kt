@@ -26,7 +26,7 @@ import org.greenrobot.eventbus.EventBus
 class MainActivity : AppCompatActivity() {
 
     companion object {
-        private const val TAG = "PageActivity"
+        private const val TAG = "MainActivity"
         private const val SHARED_PREFERENCE_NAME = "user"
     }
 
@@ -80,6 +80,9 @@ class MainActivity : AppCompatActivity() {
         CachedData.token?.let { token ->
             lifecycleScope.launch {
                 userInfo(token)
+            }
+            lifecycleScope.launch {
+                messageList(token)
             }
         }
         lifecycleScope.launch {
@@ -151,6 +154,33 @@ class MainActivity : AppCompatActivity() {
                             Toast.makeText(
                                 this@MainActivity, "参数错误", Toast.LENGTH_SHORT
                             ).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "request failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "请求异常", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private suspend fun messageList(token: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                val commonData =
+                    ServerApiManager.apiService.messageList(token, 0).await()
+                when (commonData.code) {
+                    1 -> {
+                        CachedData.multiUserMessageList.userMessageLists.clear()
+                        CachedData.multiUserMessageList.userMessageLists.addAll(commonData.data.userMessageLists)
+                        CachedData.multiUserMessageList.lastMessageId = commonData.data.lastMessageId
+                        Log.d(TAG, CachedData.multiUserMessageList.toString())
+                    }
+                    else -> {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, "参数错误", Toast.LENGTH_SHORT).show()
                         }
                     }
                 }

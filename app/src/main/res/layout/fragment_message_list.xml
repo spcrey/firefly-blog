@@ -5,14 +5,17 @@
     android:layout_height="match_parent"
     tools:context=".fragment.MessageListFragment">
 
-    <TextView
+    <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
+        android:id="@+id/swipe_refresh"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:text="@string/prompt_not_implemented_feature"
-        android:gravity="center"
-        android:textColor="@color/white"
-        android:textSize="16sp"
-        android:alpha="0.4"
-        />
+        android:paddingBottom="12dp"
+        >
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recycler_view"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            />
+    </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
 
 </FrameLayout>
