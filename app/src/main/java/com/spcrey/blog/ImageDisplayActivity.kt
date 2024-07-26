@@ -45,8 +45,6 @@ class ImageDisplayActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
-        actionBar?.hide()
 
         textRadio.text = "${imageId+1}/${imageUrls?.size}"
 

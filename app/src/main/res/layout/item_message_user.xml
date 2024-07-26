@@ -59,4 +59,27 @@
         app:layout_constraintBottom_toBottomOf="@+id/img_user_avatar"
         />
 
+    <ImageView
+        android:id="@+id/bg_new_message_num"
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:src="@drawable/bg_circle_pink"
+        app:layout_constraintEnd_toEndOf="@+id/text_time"
+        app:layout_constraintBottom_toBottomOf="@+id/text_last_message"
+        />
+
+    <TextView
+        android:id="@+id/text_new_message_num"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:text="99"
+        android:textSize="11sp"
+        android:gravity="center"
+        android:textColor="@color/white"
+        app:layout_constraintStart_toStartOf="@+id/bg_new_message_num"
+        app:layout_constraintEnd_toEndOf="@+id/bg_new_message_num"
+        app:layout_constraintTop_toTopOf="@+id/bg_new_message_num"
+        app:layout_constraintBottom_toBottomOf="@+id/bg_new_message_num"
+        />
+
 </androidx.constraintlayout.widget.ConstraintLayout>
