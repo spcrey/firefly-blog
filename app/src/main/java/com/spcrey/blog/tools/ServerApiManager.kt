@@ -134,7 +134,7 @@ object ServerApiManager {
         fun messageSendText(
             @Header("Authorization") token: String,
             @Body form: MessageSendTextForm
-        ): Deferred<CommonData<String>>
+        ): Deferred<CommonData<MultiUserMessageList>>
 
         @Headers("content-type: application/json")
         @GET("/message/list")
@@ -153,7 +153,7 @@ object ServerApiManager {
 
     data class UserSendSmsForm(val phoneNumber: String)
 
-    data class MessageSendTextForm(val textContent: String, val receivingUserId: Int)
+    data class MessageSendTextForm(val textContent: String, val receivingUserId: Int, val lastId: Int?)
 
     data class UserLoginByCodeForm(val phoneNumber: String, val code: String)
 
@@ -205,7 +205,7 @@ object ServerApiManager {
         val id: Int, val textContent: String?, val imageUrl: String?,
         val sendingUserId: String, val receivingUserId: String,
         val createTime: String,
-        val isSendingUser: Boolean
+        var isSendingUser: Boolean
     )
 
     data class UserMessageList(

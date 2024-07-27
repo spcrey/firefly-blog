@@ -83,7 +83,7 @@ class CommentActivity : AppCompatActivity() {
             val keypadHeight: Int = screenHeight - r.bottom
             if (keypadHeight > screenHeight * 0.15) {
                 val params = btnComment.layoutParams as ConstraintLayout.LayoutParams
-                params.bottomMargin = keypadHeight
+                params.bottomMargin = keypadHeight + dpToPx(12)
                 btnComment.layoutParams = params
             } else {
                 val params = btnComment.layoutParams as ConstraintLayout.LayoutParams

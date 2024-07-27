@@ -12,7 +12,7 @@
     <color name="deep_white">#FFCCCCCC</color>
     <color name="white_B0">#FFB0B0B0</color>
     <color name="white_90">#FF909090</color>
-    <color name="white_80">#FF808080</color>
+    <color name="white_80">#CCFFFFFF</color>
     <color name="white_60">#FF606060</color>
     <color name="white_30">#FF303030</color>
 </resources>
