@@ -13,9 +13,10 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.spcrey.blog.fragment.HomePageFragment
-import com.spcrey.blog.fragment.MessageListFragment
+import com.spcrey.blog.fragment.MessageUserListFragment
 import com.spcrey.blog.fragment.MineFragment
 import com.spcrey.blog.tools.CachedData
+import com.spcrey.blog.tools.MessageReceiving
 import com.spcrey.blog.tools.ServerApiManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -75,6 +76,15 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
+        MessageReceiving.setListener(object : MessageReceiving.Listener{
+            override suspend fun countComplete() {
+                withContext(Dispatchers.Main) {
+                    EventBus.getDefault().post(MessageUserListFragment.MessageUpdateEvent())
+                }
+            }
+        })
+
+        MessageReceiving.run()
         CachedData.token = sharedPreferences.getString("token", null)
 
         CachedData.token?.let { token ->
@@ -123,7 +133,7 @@ class MainActivity : AppCompatActivity() {
             textMessageList.alpha = 0.8f
             textMine.alpha = 0.2f
             supportFragmentManager.beginTransaction().setReorderingAllowed(true).replace(
-                R.id.fragment_content, MessageListFragment::class.java, null, TAG
+                R.id.fragment_content, MessageUserListFragment::class.java, null, TAG
             ).commit()
         }
 

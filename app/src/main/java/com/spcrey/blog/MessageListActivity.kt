@@ -3,14 +3,12 @@ package com.spcrey.blog
 import android.content.Context
 import android.content.res.Resources
 import android.graphics.Rect
-import android.media.Image
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
-import android.view.ViewTreeObserver
 import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
@@ -22,20 +20,25 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.resource.bitmap.CenterCrop
-import com.bumptech.glide.load.resource.bitmap.CircleCrop
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.viewholder.BaseViewHolder
-import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.spcrey.blog.fragment.MessageUserListFragment
+import com.spcrey.blog.fragment.MineFragment.Status
+import com.spcrey.blog.fragment.MineFragment.UserLogoutEvent
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.ServerApiManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import org.greenrobot.eventbus.EventBus
+import org.greenrobot.eventbus.Subscribe
+import org.greenrobot.eventbus.ThreadMode
 
 class MessageListActivity : AppCompatActivity() {
 
@@ -46,11 +49,19 @@ class MessageListActivity : AppCompatActivity() {
     private val textTitleBar by lazy {
         findViewById<TextView>(R.id.text_title_bar)
     }
-    private val position by lazy {
-        intent.getIntExtra("position", 0)
+    private val withUserId by lazy {
+        intent.getIntExtra("withUserId", 0)
+    }
+    private val userMessageList by lazy {
+        CachedData.multiUserMessageList.userMessageLists.find {
+            it.withUserId == withUserId
+        }
+    }
+    private val messages by lazy {
+        userMessageList?.messages ?: mutableListOf()
     }
     private val messageAdapter by lazy {
-        MessageAdapter(CachedData.multiUserMessageList.userMessageLists[position].messages, position)
+        MessageAdapter(messages, userMessageList?.userAvatarUrl)
     }
     private val recyclerView by lazy {
         findViewById<RecyclerView>(R.id.recycler_view).apply {
@@ -72,6 +83,42 @@ class MessageListActivity : AppCompatActivity() {
         findViewById<EditText>(R.id.editText_content)
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        EventBus.getDefault().unregister(this)
+    }
+
+    class MessageUpdateEvent(val isScrollToPosition: Boolean)
+
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    fun onMessageUpdateEvent(event: MessageUpdateEvent) {
+
+//        val layoutManager = recyclerView.layoutManager as LinearLayoutManager
+//        val lastVisibleItemPosition = layoutManager.findLastVisibleItemPosition()
+//        val totalItemCount = layoutManager.itemCount
+
+        if (!recyclerView.canScrollVertically(1)) {
+            messageAdapter.notifyDataSetChanged()
+            recyclerView.scrollToPosition(messageAdapter.itemCount - 1)
+        } else {
+            messageAdapter.notifyDataSetChanged()
+        }
+
+//        recyclerView.scrollToPosition(messageAdapter.itemCount - 1)
+//        } else {
+//        Toast.makeText(this@MessageListActivity,
+//            "$lastVisibleItemPosition/$totalItemCount",
+//            Toast.LENGTH_SHORT).show()
+
+//        if (lastVisibleItemPosition != totalItemCount - 1) {
+//            recyclerView.scrollToPosition(messageAdapter.itemCount - 1)
+//            messageAdapter.notifyDataSetChanged()
+//            recyclerView.scrollToPosition(messageAdapter.itemCount - 1)
+//        } else {
+
+//        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -81,6 +128,7 @@ class MessageListActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+        EventBus.getDefault().register(this)
 
         recyclerView.scrollToPosition(messageAdapter.itemCount - 1)
 
@@ -116,7 +164,8 @@ class MessageListActivity : AppCompatActivity() {
             val content = editTextContent.text.toString()
             when {
                 content.isEmpty() -> {
-                    Toast.makeText(this@MessageListActivity, "发送内容不能为空", Toast.LENGTH_SHORT).show()
+//                    Toast.makeText(this@MessageListActivity, "发送内容不能为空", Toast.LENGTH_SHORT).show()
+                    EventBus.getDefault().post(MessageUserListFragment.MessageUpdateEvent())
                 }
                 content.length > 64 -> {
                     Toast.makeText(this@MessageListActivity, "发送内容不能超过64位", Toast.LENGTH_SHORT).show()
@@ -124,14 +173,14 @@ class MessageListActivity : AppCompatActivity() {
                 else -> {
                     CachedData.token?.let { token ->
                         lifecycleScope.launch {
-                            messageSendText(token, content, CachedData.multiUserMessageList.userMessageLists[position].withUserId)
+                            messageSendText(token, content, withUserId)
                         }
                     }
                 }
             }
         }
 
-        textTitleBar.text = CachedData.multiUserMessageList.userMessageLists[position].userNickname
+        textTitleBar.text = userMessageList?.userNickname
 
         recyclerView.adapter = messageAdapter
     }
@@ -148,16 +197,17 @@ class MessageListActivity : AppCompatActivity() {
                 ).await()
                 if (commonData.code == 1) {
                     withContext(Dispatchers.Main) {
-                        val messages = commonData.data.userMessageLists.find{
-                            it.withUserId == CachedData.multiUserMessageList.userMessageLists[position].withUserId
-                        }?.messages
-                        messages?.let {
-                            CachedData.multiUserMessageList.userMessageLists[position].messages.addAll(it)
-                        }
+                        val addMessages = commonData.data.userMessageLists.find{
+                            it.withUserId == withUserId
+                        }?.messages ?: mutableListOf()
+                        val positionStart = messages.size
+                        messages.addAll(addMessages)
                         CachedData.multiUserMessageList.lastMessageId = commonData.data.lastMessageId
-                        messageAdapter.notifyDataSetChanged()
+                        messageAdapter.notifyItemRangeInserted(positionStart, addMessages.size)
                         editTextContent.text.clear()
                         recyclerView.scrollToPosition(messageAdapter.itemCount - 1)
+                        EventBus.getDefault().post(MessageUserListFragment.AdapterUpdateEvent()
+                        )
                     }
 
                 } else {
@@ -172,7 +222,10 @@ class MessageListActivity : AppCompatActivity() {
         }
     }
 
-    class MessageAdapter(data: MutableList<ServerApiManager.Message>, private val position: Int):
+    class MessageAdapter(
+        data: MutableList<ServerApiManager.Message>,
+        private val userAvatarUrl: String?
+    ):
         BaseQuickAdapter<ServerApiManager.Message, BaseViewHolder>(R.layout.item_message, data) {
 
         private fun createImgUserAvatar(item: ServerApiManager.Message): ImageView{
@@ -191,7 +244,7 @@ class MessageListActivity : AppCompatActivity() {
             } else {
                 layoutParams.startToStart = ConstraintLayout.LayoutParams.PARENT_ID
                 Glide.with(context)
-                    .load(CachedData.multiUserMessageList.userMessageLists[position].userAvatarUrl)
+                    .load(userAvatarUrl)
                     .transform(CenterCrop(), RoundedCorners(dpToPx(4)))
                     .into(imgUserAvatar)
             }

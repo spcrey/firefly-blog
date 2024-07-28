@@ -8,4 +8,8 @@ object CachedData {
     val articles: MutableList<ServerApiManager.Article> = mutableListOf()
     var currentPageNum = 1
     var multiUserMessageList = ServerApiManager.MultiUserMessageList(mutableListOf(), 0)
+
+    @JvmStatic
+    fun main(args: Array<String>) {
+    }
 }

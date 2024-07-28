@@ -210,10 +210,10 @@ object ServerApiManager {
 
     data class UserMessageList(
         val withUserId: Int, val userAvatarUrl: String, val userNickname: String,
-        val lastMessageId: String, val messages: MutableList<Message>
+        var lastMessageId: Int, val messages: MutableList<Message>
     )
 
     data class MultiUserMessageList(
-        var userMessageLists: MutableList<UserMessageList>, var lastMessageId: Int
+        var userMessageLists: MutableList<UserMessageList>, var lastMessageId: Int?
     )
 }
