@@ -3,8 +3,10 @@ package com.spcrey.blog
 import android.content.Context
 import android.content.res.Resources
 import android.graphics.Rect
+import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.provider.MediaStore
 import android.util.Log
 import android.view.Gravity
 import android.view.View
@@ -15,6 +17,7 @@ import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.content.ContextCompat
 import androidx.core.view.ViewCompat
@@ -28,22 +31,29 @@ import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.viewholder.BaseViewHolder
+import com.google.gson.Gson
 import com.spcrey.blog.fragment.MessageUserListFragment
 import com.spcrey.blog.fragment.MineFragment.Status
 import com.spcrey.blog.fragment.MineFragment.UserLogoutEvent
 import com.spcrey.blog.tools.CachedData
+import com.spcrey.blog.tools.MessageReceiving
 import com.spcrey.blog.tools.ServerApiManager
+import com.spcrey.blog.tools.TimeTransform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
+import java.io.File
+import java.io.FileInputStream
+import java.util.Base64
 
 class MessageListActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "MessageListActivity"
+        private const val SHARED_PREFERENCE_NAME = "user"
     }
 
     private val textTitleBar by lazy {
@@ -82,20 +92,28 @@ class MessageListActivity : AppCompatActivity() {
     private val editTextContent by lazy {
         findViewById<EditText>(R.id.editText_content)
     }
+    private val sharedPreferences by lazy {
+        getSharedPreferences(SHARED_PREFERENCE_NAME, MODE_PRIVATE)
+    }
+    private val icSendImage by lazy {
+        findViewById<ImageView>(R.id.ic_image_send)
+    }
+    private val gson = Gson()
 
     override fun onDestroy() {
         super.onDestroy()
+        MessageReceiving.max_count = 5
+        CachedData.currentUserId = 0
         EventBus.getDefault().unregister(this)
+        if (userMessageList?.messages?.size==0) {
+            CachedData.multiUserMessageList.userMessageLists.remove(userMessageList)
+        }
     }
 
-    class MessageUpdateEvent(val isScrollToPosition: Boolean)
+    class MessageUpdateEvent()
 
     @Subscribe(threadMode = ThreadMode.MAIN)
     fun onMessageUpdateEvent(event: MessageUpdateEvent) {
-
-//        val layoutManager = recyclerView.layoutManager as LinearLayoutManager
-//        val lastVisibleItemPosition = layoutManager.findLastVisibleItemPosition()
-//        val totalItemCount = layoutManager.itemCount
 
         if (!recyclerView.canScrollVertically(1)) {
             messageAdapter.notifyDataSetChanged()
@@ -103,20 +121,36 @@ class MessageListActivity : AppCompatActivity() {
         } else {
             messageAdapter.notifyDataSetChanged()
         }
+    }
 
-//        recyclerView.scrollToPosition(messageAdapter.itemCount - 1)
-//        } else {
-//        Toast.makeText(this@MessageListActivity,
-//            "$lastVisibleItemPosition/$totalItemCount",
-//            Toast.LENGTH_SHORT).show()
+    private fun Context.getRealPath(uri: Uri): String? {
+        var filePath: String? = null
+        val cursor = contentResolver.query(uri, null, null, null, null)
+        cursor?.use {
+            it.moveToFirst()
+            filePath = it.getString(it.getColumnIndexOrThrow(MediaStore.Images.Media.DATA))
+        }
+        return filePath
+    }
 
-//        if (lastVisibleItemPosition != totalItemCount - 1) {
-//            recyclerView.scrollToPosition(messageAdapter.itemCount - 1)
-//            messageAdapter.notifyDataSetChanged()
-//            recyclerView.scrollToPosition(messageAdapter.itemCount - 1)
-//        } else {
+    private val galleryLauncher = registerForActivityResult<String, Uri>(
+        ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let { imageUri ->
+            val localPath = getRealPath(imageUri)
+            val file = localPath?.let {
+                File(it)
+            }
+            val fileBytes = FileInputStream(file).readBytes()
+            val fileBase64 = Base64.getEncoder().encodeToString(fileBytes)
+            CachedData.token?.let {token ->
+                lifecycleScope.launch {
+                    messageSendImage(token, fileBase64, withUserId)
+                }
+            }
+        }
 
-//        }
+        icSendImage.isEnabled = true
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -128,7 +162,20 @@ class MessageListActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+        MessageReceiving.max_count = 2
         EventBus.getDefault().register(this)
+
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                CachedData.currentUserId = withUserId
+                userMessageList?.newMessageCount = null
+                EventBus.getDefault().post(MessageUserListFragment.AdapterUpdateEvent())
+                val edit = sharedPreferences.edit()
+                edit.putString("userMessageLists", gson.toJson(CachedData.multiUserMessageList.userMessageLists))
+                edit.apply()
+            }
+        }
+
 
         recyclerView.scrollToPosition(messageAdapter.itemCount - 1)
 
@@ -160,12 +207,16 @@ class MessageListActivity : AppCompatActivity() {
             }
         }
 
+        icSendImage.setOnClickListener {
+            icSendImage.isEnabled = false
+            galleryLauncher.launch("image/*")
+        }
+
         btnContentSend.setOnClickListener {
             val content = editTextContent.text.toString()
             when {
                 content.isEmpty() -> {
-//                    Toast.makeText(this@MessageListActivity, "发送内容不能为空", Toast.LENGTH_SHORT).show()
-                    EventBus.getDefault().post(MessageUserListFragment.MessageUpdateEvent())
+                    Toast.makeText(this@MessageListActivity, "发送内容不能为空", Toast.LENGTH_SHORT).show()
                 }
                 content.length > 64 -> {
                     Toast.makeText(this@MessageListActivity, "发送内容不能超过64位", Toast.LENGTH_SHORT).show()
@@ -173,6 +224,17 @@ class MessageListActivity : AppCompatActivity() {
                 else -> {
                     CachedData.token?.let { token ->
                         lifecycleScope.launch {
+                            btnContentSend.isEnabled = false
+                            messages.add(
+                                ServerApiManager.Message(
+                                    id=0, textContent = content, sendingUserId = CachedData.user?.id?:0,
+                                    receivingUserId = withUserId, createTime = TimeTransform.getNow(),
+                                    isSendingUser = true, imageUrl = null
+                                )
+                            )
+                            messageAdapter.notifyDataSetChanged()
+                            recyclerView.scrollToPosition(messageAdapter.itemCount - 1)
+                            editTextContent.text.clear()
                             messageSendText(token, content, withUserId)
                         }
                     }
@@ -189,25 +251,17 @@ class MessageListActivity : AppCompatActivity() {
         return (dp * resources.displayMetrics.density).toInt()
     }
 
-    private suspend fun messageSendText(token: String, textContent: String, receivingUserId: Int) {
+    private suspend fun messageSendImage(token: String, imageUrl: String, receivingUserId: Int) {
         withContext(Dispatchers.IO) {
             try {
-                val commonData = ServerApiManager.apiService.messageSendText(
-                    token, ServerApiManager.MessageSendTextForm(textContent, receivingUserId, CachedData.multiUserMessageList.lastMessageId)
+                val commonData = ServerApiManager.apiService.messageSendImage(
+                    token, ServerApiManager.MessageSendImageForm(imageUrl, receivingUserId, CachedData.multiUserMessageList.lastMessageId)
                 ).await()
                 if (commonData.code == 1) {
                     withContext(Dispatchers.Main) {
-                        val addMessages = commonData.data.userMessageLists.find{
-                            it.withUserId == withUserId
-                        }?.messages ?: mutableListOf()
-                        val positionStart = messages.size
-                        messages.addAll(addMessages)
-                        CachedData.multiUserMessageList.lastMessageId = commonData.data.lastMessageId
-                        messageAdapter.notifyItemRangeInserted(positionStart, addMessages.size)
-                        editTextContent.text.clear()
-                        recyclerView.scrollToPosition(messageAdapter.itemCount - 1)
-                        EventBus.getDefault().post(MessageUserListFragment.AdapterUpdateEvent()
-                        )
+                        MessageReceiving.stop()
+                        MessageReceiving.current_count = MessageReceiving.max_count
+                        MessageReceiving.run()
                     }
 
                 } else {
@@ -217,6 +271,33 @@ class MessageListActivity : AppCompatActivity() {
                 Log.d(TAG, "request failed: ${e.message}")
                 withContext(Dispatchers.Main) {
                     Toast.makeText(this@MessageListActivity, "请求异常", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private suspend fun messageSendText(token: String, textContent: String, receivingUserId: Int) {
+        withContext(Dispatchers.IO) {
+            try {
+                val commonData = ServerApiManager.apiService.messageSendText(
+                    token, ServerApiManager.MessageSendTextForm(textContent, receivingUserId, CachedData.multiUserMessageList.lastMessageId)
+                ).await()
+                if (commonData.code == 1) {
+                    MessageReceiving.stop()
+                    MessageReceiving.current_count = MessageReceiving.max_count
+                    MessageReceiving.run()
+
+                    withContext(Dispatchers.Main) {
+                        btnContentSend.isEnabled = true
+                    }
+
+                } else {
+                    Toast.makeText(this@MessageListActivity, "参数错误", Toast.LENGTH_SHORT).show()
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "request failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MessageListActivity, "请求异常：发送", Toast.LENGTH_SHORT).show()
                 }
             }
         }

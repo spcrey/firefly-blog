@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.EditText
+import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -13,6 +15,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
 import com.spcrey.blog.fragment.MineFragment
 import com.spcrey.blog.tools.CachedData
+import com.spcrey.blog.tools.MessageReceiving
 import com.spcrey.blog.tools.ServerApiManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -34,6 +37,9 @@ class LoginByPasswordActivity : AppCompatActivity() {
     private val btnLogin by lazy {
         findViewById<View>(R.id.btn_to_login)
     }
+    private val textLogin by lazy {
+        findViewById<TextView>(R.id.text_to_login)
+    }
     private val btnToRegister by lazy {
         findViewById<View>(R.id.btn_to_register)
     }
@@ -42,6 +48,9 @@ class LoginByPasswordActivity : AppCompatActivity() {
     }
     private val sharedPreferences by lazy {
         getSharedPreferences(SHARED_PREFERENCE_NAME, MODE_PRIVATE)
+    }
+    private val icBack by lazy {
+        findViewById<ImageView>(R.id.ic_back)
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -52,6 +61,10 @@ class LoginByPasswordActivity : AppCompatActivity() {
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
+        }
+
+        icBack.setOnClickListener {
+            finish()
         }
 
         btnToRegister.setOnClickListener {
@@ -69,7 +82,12 @@ class LoginByPasswordActivity : AppCompatActivity() {
             val commonData = validateEditText()
             commonData.data?.let { userLoginByPasswordForm ->
                 lifecycleScope.launch {
+                    btnLogin.isEnabled = false
+                    textLogin.text = "登录中"
                     userLoginByPassword(userLoginByPasswordForm)
+                    btnLogin.isEnabled = true
+                    textLogin.text = "登录"
+                    MessageReceiving.run()
                 }
             } ?: run {
                 Toast.makeText(
@@ -105,6 +123,8 @@ class LoginByPasswordActivity : AppCompatActivity() {
             Toast.makeText(
                 this@LoginByPasswordActivity, "登录成功", Toast.LENGTH_SHORT
             ).show()
+            MessageReceiving.current_count = MessageReceiving.max_count
+            MessageReceiving.run()
             EventBus.getDefault().post(MineFragment.UserInfoUpdateEvent())
             finish()
         }

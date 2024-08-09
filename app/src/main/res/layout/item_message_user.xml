@@ -64,6 +64,7 @@
         android:layout_width="18dp"
         android:layout_height="18dp"
         android:src="@drawable/bg_circle_pink"
+        android:visibility="gone"
         app:layout_constraintEnd_toEndOf="@+id/text_time"
         app:layout_constraintBottom_toBottomOf="@+id/text_last_message"
         />
@@ -73,6 +74,7 @@
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:text="99"
+        android:visibility="gone"
         android:textSize="11sp"
         android:gravity="center"
         android:textColor="@color/white"

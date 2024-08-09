@@ -11,6 +11,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity.MODE_PRIVATE
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
 import androidx.recyclerview.widget.StaggeredGridLayoutManager
@@ -20,23 +21,27 @@ import com.bumptech.glide.load.resource.bitmap.CenterCrop
 import com.bumptech.glide.load.resource.bitmap.RoundedCorners
 import com.chad.library.adapter.base.BaseQuickAdapter
 import com.chad.library.adapter.base.viewholder.BaseViewHolder
+import com.google.gson.Gson
 import com.spcrey.blog.MessageListActivity
 import com.spcrey.blog.R
 import com.spcrey.blog.tools.CachedData
+import com.spcrey.blog.tools.MessageReceiving
 import com.spcrey.blog.tools.ServerApiManager
+import com.spcrey.blog.tools.TimeTransform
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.greenrobot.eventbus.EventBus
 import org.greenrobot.eventbus.Subscribe
 import org.greenrobot.eventbus.ThreadMode
+import kotlin.math.min
 
 class MessageUserListFragment : Fragment() {
 
     companion object {
         private const val TAG = "MessageUserListFragment"
+        private const val SHARED_PREFERENCE_NAME = "user"
     }
-
     private lateinit var view: View
 
     private val recyclerView by lazy {
@@ -48,7 +53,6 @@ class MessageUserListFragment : Fragment() {
     private val messageUserAdapter by lazy {
         MessageUserAdapter(CachedData.multiUserMessageList.userMessageLists)
     }
-
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
@@ -68,11 +72,20 @@ class MessageUserListFragment : Fragment() {
 
         swipeRefreshLayout.setOnRefreshListener {
             lifecycleScope.launch {
-                CachedData.token?.let { token ->
-                    messageList(token)
-                }
-                withContext(Dispatchers.Main) {
-                    messageUserAdapter.notifyDataSetChanged()
+                CachedData.token?.let {
+                    MessageReceiving.stop()
+                    MessageReceiving.setCountCompleteAfterListener(object : MessageReceiving.CountCompleteAfterListener{
+                        override suspend fun run() {
+                            withContext(Dispatchers.Main) {
+                                messageUserAdapter.notifyDataSetChanged()
+                                swipeRefreshLayout.isRefreshing = false
+                                }
+                            MessageReceiving.clearCompleteAfterListener()
+                        }
+                    })
+                    MessageReceiving.current_count = MessageReceiving.max_count
+                    MessageReceiving.run()
+                } ?: run {
                     swipeRefreshLayout.isRefreshing = false
                 }
             }
@@ -87,52 +100,10 @@ class MessageUserListFragment : Fragment() {
         })
     }
 
-    private suspend fun messageList(token: String) {
-        withContext(Dispatchers.IO) {
-            try {
-                val commonData =
-                    ServerApiManager.apiService.messageList(token, CachedData.multiUserMessageList.lastMessageId?:0).await()
-                when (commonData.code) {
-                    1 -> {
-                        CachedData.multiUserMessageList.userMessageLists.addAllByWithUserId(commonData.data.userMessageLists)
-                        commonData.data.lastMessageId?.let { lastMessageId ->
-                            CachedData.multiUserMessageList.lastMessageId = lastMessageId
-                        }
-                    }
-                    else -> {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(context, "参数错误", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.d(TAG, "request failed: ${e.message}")
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "请求异常", Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
-
-    class MessageUpdateEvent
-
-    @Subscribe(threadMode = ThreadMode.MAIN)
-    fun onMessageUpdateEvent(event: MessageUpdateEvent) {
-        lifecycleScope.launch {
-            CachedData.token?.let { token ->
-                messageList(token)
-            }
-            withContext(Dispatchers.Main) {
-                messageUserAdapter.notifyDataSetChanged()
-            }
-            EventBus.getDefault().post(MessageListActivity.MessageUpdateEvent(true))
-        }
-    }
-
     class AdapterUpdateEvent
 
     @Subscribe(threadMode = ThreadMode.MAIN)
-    fun onAdapterUpdateEventEvent(event: AdapterUpdateEvent) {
+    fun onAdapterUpdateEvent(event: AdapterUpdateEvent) {
         messageUserAdapter.notifyDataSetChanged()
     }
 
@@ -157,7 +128,22 @@ class MessageUserListFragment : Fragment() {
             }
             val imgUserAvatar = holder.getView<ImageView>(R.id.img_user_avatar)
             val textUserNickname = holder.getView<TextView>(R.id.text_user_nickname)
+            val textTime = holder.getView<TextView>(R.id.text_time)
             val textLastMessage = holder.getView<TextView>(R.id.text_last_message)
+            val bgNewMessageNum = holder.getView<View>(R.id.bg_new_message_num)
+            val textNewMessageNum = holder.getView<TextView>(R.id.text_new_message_num)
+            item.messages.lastOrNull()?.let { message ->
+                textTime.text = TimeTransform.transform(message.createTime)
+            }
+
+            item.newMessageCount?.let { newMessageCount ->
+                bgNewMessageNum.visibility = View.VISIBLE
+                textNewMessageNum.text = min(newMessageCount, 99).toString()
+                textNewMessageNum.visibility = View.VISIBLE
+            } ?: run {
+                bgNewMessageNum.visibility = View.GONE
+                textNewMessageNum.visibility = View.GONE
+            }
 
             textUserNickname.text = item.userNickname
             val content = item.messages.lastOrNull()?.textContent?:"[图片]"
@@ -185,18 +171,3 @@ class MessageUserListFragment : Fragment() {
     }
 }
 
-private fun MutableList<ServerApiManager.UserMessageList>.addAllByWithUserId(userMessageLists: MutableList<ServerApiManager.UserMessageList>) {
-    for (addUserMessageList in userMessageLists) {
-        val existingMessageList = this.find { it.withUserId  == addUserMessageList.withUserId }
-        existingMessageList?.let {
-            existingMessageList.messages.addAll(addUserMessageList.messages)
-            existingMessageList.lastMessageId = addUserMessageList.lastMessageId
-        } ?: run {
-            this.add(addUserMessageList)
-        }
-
-        this.sortByDescending {
-            it.lastMessageId
-        }
-    }
-}

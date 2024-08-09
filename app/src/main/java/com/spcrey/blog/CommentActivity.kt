@@ -1,5 +1,6 @@
 package com.spcrey.blog
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Rect
 import android.os.Bundle
@@ -102,8 +103,10 @@ class CommentActivity : AppCompatActivity() {
                         Toast.LENGTH_SHORT
                     ).show()
                 } else {
+                    btnComment.isEnabled = false
                     lifecycleScope.launch {
                         articleComment(token, content)
+                        btnComment.isEnabled = true
                     }
                 }
             } ?: run {
@@ -135,6 +138,7 @@ class CommentActivity : AppCompatActivity() {
         }
     }
 
+    @SuppressLint("NotifyDataSetChanged")
     private suspend fun articleListComments() {
         withContext(Dispatchers.IO) {
             try {
@@ -163,6 +167,7 @@ class CommentActivity : AppCompatActivity() {
     }
 
     private suspend fun articleComment(token: String, content: String) {
+        editTextContent.text.clear()
         withContext(Dispatchers.IO) {
             try {
                 val commonData = ServerApiManager.apiService.articleComment(
@@ -171,11 +176,6 @@ class CommentActivity : AppCompatActivity() {
                 when (commonData.code) {
                     1 -> {
                         withContext(Dispatchers.Main) {
-                            Toast.makeText(
-                                this@CommentActivity,
-                                "发布成功",
-                                Toast.LENGTH_SHORT
-                            ).show()
                             editTextContent.text.clear()
                             articleListComments()
                         }

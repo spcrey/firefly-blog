@@ -1,5 +1,6 @@
 package com.spcrey.blog
 
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.ImageView
@@ -48,6 +49,8 @@ class UserInfoActivity : AppCompatActivity() {
     private val icBack by lazy {
         findViewById<ImageView>(R.id.ic_back)
     }
+    private lateinit var userNickname: String
+    private lateinit var userAvatarUrl: String
 
     enum class FollowStatus {
         FOLLOW, UN_FOLLOW
@@ -64,13 +67,36 @@ class UserInfoActivity : AppCompatActivity() {
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
         }
+        btnFollow.isEnabled = false
+        btnChat.isEnabled = false
 
         icBack.setOnClickListener {
             finish()
         }
 
         btnChat.setOnClickListener {
-            Toast.makeText(this@UserInfoActivity, "该功能暂未实现", Toast.LENGTH_SHORT).show()
+            CachedData.token?.let {
+                CachedData.user?.let { user ->
+                    if (userId == user.id) {
+                        Toast.makeText(this@UserInfoActivity, "不能与自己聊天", Toast.LENGTH_SHORT).show()
+                    } else {
+                        val intent = Intent(this@UserInfoActivity, MessageListActivity::class.java)
+
+                        val existingMessageList = CachedData.multiUserMessageList.userMessageLists.find { it.withUserId  == userId }
+                        if (existingMessageList == null) {
+                            CachedData.multiUserMessageList.userMessageLists.add(
+                                ServerApiManager.UserMessageList(
+                                    withUserId = userId, lastMessageId = 0, messages=mutableListOf(), newMessageCount = null,
+                                    userNickname = userNickname, userAvatarUrl = userAvatarUrl
+                                ))
+                        }
+                        intent.putExtra("withUserId", userId)
+                        startActivity(intent)
+                    }
+                }
+            } ?: run {
+                Toast.makeText(this@UserInfoActivity, "未登录", Toast.LENGTH_SHORT).show()
+            }
         }
 
         lifecycleScope.launch {
@@ -86,12 +112,16 @@ class UserInfoActivity : AppCompatActivity() {
                         when (followStatus) {
                             FollowStatus.UN_FOLLOW -> {
                                 lifecycleScope.launch {
+                                    btnFollow.isEnabled = false
                                     userFollow(token)
+                                    btnFollow.isEnabled = true
                                 }
                             }
                             FollowStatus.FOLLOW -> {
                                 lifecycleScope.launch {
+                                    btnFollow.isEnabled = false
                                     userUnfollow(token)
+                                    btnFollow.isEnabled = true
                                 }
                             }
                         }
@@ -113,13 +143,26 @@ class UserInfoActivity : AppCompatActivity() {
                     1 -> {
                         withContext(Dispatchers.Main) {
                             val user = commonData.data
+                            btnChat.isEnabled = true
+                            userAvatarUrl = user.avatarUrl
+                            userNickname = user.nickname
                             Glide.with(this@UserInfoActivity)
                                 .load(user.avatarUrl)
                                 .transform(CircleCrop())
                                 .into(imgUserAvatar)
                             textNickname.text = user.nickname
-                            textUserPersonalSignature.text = user.personalSignature
-                            textUserEmailContent.text = user.email
+                            user.personalSignature?.let { personalSignature ->
+                                textUserPersonalSignature.text = personalSignature
+                            } ?: run {
+                                textUserPersonalSignature.text = "未设置签名"
+                            }
+
+                            user.email?.let { email ->
+                                textUserEmailContent.text = email
+                            } ?: run {
+                                textUserEmailContent.text = "未设置邮箱"
+                            }
+
                             if (user.isFollowed == null || user.isFollowed == false) {
                                 btnFollow.text = "点击关注"
                                 followStatus = FollowStatus.UN_FOLLOW
@@ -127,6 +170,7 @@ class UserInfoActivity : AppCompatActivity() {
                                 btnFollow.text = "已关注"
                                 followStatus = FollowStatus.FOLLOW
                             }
+                            btnFollow.isEnabled = true
                         }
                     } else -> {
                     withContext(Dispatchers.Main) {

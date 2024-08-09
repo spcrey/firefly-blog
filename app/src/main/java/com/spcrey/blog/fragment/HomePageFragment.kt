@@ -89,9 +89,11 @@ class HomePageFragment : Fragment() {
         }
 
         articleAdapter.setUserOnClickListener(object : ArticleAdapter.UserOnClickListener{
-            override fun onClick(userId: Int) {
+            override fun onClick(userId: Int, userNickname: String, userAvatarUrl: String) {
                 val intent = Intent(context, UserInfoActivity::class.java)
                 intent.putExtra("userId", userId)
+                intent.putExtra("userNickname", userNickname)
+                intent.putExtra("userAvatarUrl", userAvatarUrl)
                 startActivity(intent)
             }
         })
@@ -121,22 +123,26 @@ class HomePageFragment : Fragment() {
         })
 
         articleAdapter.setIcLikeOnClickListener(object : ArticleAdapter.IcLikeOnClickListener{
-            override fun onClick(articleId: Int, position: Int, status: Boolean?) {
+            override fun onClick(bgLike: View, articleId: Int, position: Int, status: Boolean?) {
                 when (status) {
                     null -> {
                         Toast.makeText(context, "请先登录", Toast.LENGTH_SHORT).show()
                     }
                     true -> {
                         lifecycleScope.launch {
+                            bgLike.isEnabled = false
                             CachedData.token?.let { token ->
                                 articleUnlike(articleId, token, position)
                             }
+                            bgLike.isEnabled = true
                         }
                     } else -> {
                         lifecycleScope.launch {
+                            bgLike.isEnabled = false
                             CachedData.token?.let { token ->
                                 articleLike(articleId, token, position)
                             }
+                            bgLike.isEnabled = true
                         }
                     }
                 }
@@ -160,7 +166,7 @@ class HomePageFragment : Fragment() {
                             swipeRefreshLayout.isRefreshing = false
                             articleAdapter.loadMoreModule.loadMoreComplete()
                         }
-                        CachedData.currentPageNum = 1
+                        CachedData.currentArticlePageNum = 1
                     } else -> {
                         withContext(Dispatchers.Main) {
                             Toast.makeText(context, "参数错误", Toast.LENGTH_SHORT).show()
@@ -182,7 +188,7 @@ class HomePageFragment : Fragment() {
         withContext(Dispatchers.IO) {
             try {
                 val commonData = ServerApiManager.apiService.articleList(
-                    CachedData.token, CachedData.currentPageNum + 1, 10
+                    CachedData.token, CachedData.currentArticlePageNum + 1, 10
                 ).await()
                 when(commonData.code) {
                     1 -> {
@@ -193,7 +199,7 @@ class HomePageFragment : Fragment() {
                                     articleAdapter.notifyDataSetChanged()
                                     articleAdapter.loadMoreModule.loadMoreComplete()
                                 }
-                                CachedData.currentPageNum += 1
+                                CachedData.currentArticlePageNum += 1
                             } false -> {
                             withContext(Dispatchers.Main) {
                                 articleAdapter.loadMoreModule.loadMoreEnd()
@@ -291,7 +297,7 @@ class HomePageFragment : Fragment() {
         }
 
         interface IcLikeOnClickListener {
-            fun onClick(articleId: Int, position: Int, status: Boolean?)
+            fun onClick(bgLike: View, articleId: Int, position: Int, status: Boolean?)
         }
         private var icLikeOnClickListener: IcLikeOnClickListener? = null
 
@@ -309,7 +315,7 @@ class HomePageFragment : Fragment() {
         }
 
         interface UserOnClickListener {
-            fun onClick(userId: Int)
+            fun onClick(userId: Int, userNickname: String, userAvatarUrl: String)
         }
         private var userOnClickListener: UserOnClickListener? = null
 
@@ -425,13 +431,13 @@ class HomePageFragment : Fragment() {
             }
 
             imgUserAvatar.setOnClickListener {
-                userOnClickListener?.onClick(item.userId)
+                userOnClickListener?.onClick(item.userId, item.userNickname, item.userAvatarUrl)
             }
             textUserNickname.setOnClickListener {
-                userOnClickListener?.onClick(item.userId)
+                userOnClickListener?.onClick(item.userId, item.userNickname, item.userAvatarUrl)
             }
             bgLike.setOnClickListener {
-                icLikeOnClickListener?.onClick(item.id, holder.layoutPosition, item.likeStatus)
+                icLikeOnClickListener?.onClick(bgLike, item.id, holder.layoutPosition, item.likeStatus)
             }
             bgComment.setOnClickListener {
                 icCommentOnClickListener?.onClick(item.id)

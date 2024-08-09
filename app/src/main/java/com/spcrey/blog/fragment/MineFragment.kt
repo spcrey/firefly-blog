@@ -16,7 +16,7 @@ import com.bumptech.glide.load.resource.bitmap.CircleCrop
 import com.spcrey.blog.ArticlePublishActivity
 import com.spcrey.blog.LoginByCodeActivity
 import com.spcrey.blog.R
-import com.spcrey.blog.InfoModifyActivity
+import com.spcrey.blog.UserInfoModifyActivity
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.ServerApiManager
 import kotlinx.coroutines.Dispatchers
@@ -73,7 +73,7 @@ class MineFragment : Fragment() {
         btnToLogin.setOnClickListener {
             when (status) {
                 Status.LOGIN -> {
-                    val intent = Intent(context, InfoModifyActivity::class.java)
+                    val intent = Intent(context, UserInfoModifyActivity::class.java)
                     startActivity(intent)
                 }
                 Status.NOT_LOGIN -> {
@@ -116,7 +116,7 @@ class MineFragment : Fragment() {
             } catch (e: Exception) {
                 Log.d(TAG, "request failed: ${e.message}")
                 withContext(Dispatchers.Main) {
-                    Toast.makeText(context, "请求异常", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(context, "请求异常${TAG}", Toast.LENGTH_SHORT).show()
                 }
             }
         }
@@ -134,17 +134,27 @@ class MineFragment : Fragment() {
 
     class UserInfoUpdateEvent
 
-    private fun onUserLoginEvent(event: UserLoginEvent) {
-        CachedData.user?.let { user ->
-            Glide.with(requireContext()).load(user.avatarUrl).transform(CircleCrop())
-                .into(imgUserAvatar)
+    @Subscribe(threadMode = ThreadMode.MAIN)
+    fun onUserLoginEvent(event: UserLoginEvent) {
+        CachedData.token?. let {
             imgUserAvatar.alpha = 1f
-            textUserNickname.text = user.nickname
-            textUserPhoneNumber.text = user.phoneNumber
             status = Status.LOGIN
-            textToLogin.text = "去修改信息"
+            textToLogin.text = "修改信息"
             btnToSendArticle.visibility = View.VISIBLE
             textToSendArticle.visibility = View.VISIBLE
+            CachedData.user?.let { user ->
+                Glide.with(requireContext()).load(user.avatarUrl).transform(CircleCrop())
+                    .into(imgUserAvatar)
+                textUserNickname.text = user.nickname
+                textUserPhoneNumber.text = user.phoneNumber
+                btnToLogin.isEnabled = true
+                btnToSendArticle.isEnabled = true
+            } ?: run {
+                textUserNickname.text = "加载中"
+                textUserPhoneNumber.text = "加载中"
+                btnToLogin.isEnabled = false
+                btnToSendArticle.isEnabled = false
+            }
         }
     }
 

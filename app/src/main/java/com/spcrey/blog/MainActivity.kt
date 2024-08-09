@@ -1,6 +1,7 @@
 package com.spcrey.blog
 
 import android.content.Context
+import android.content.Intent
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
@@ -12,9 +13,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import com.google.gson.Gson
 import com.spcrey.blog.fragment.HomePageFragment
 import com.spcrey.blog.fragment.MessageUserListFragment
 import com.spcrey.blog.fragment.MineFragment
+import com.spcrey.blog.fragment.MineFragment.Companion
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.MessageReceiving
 import com.spcrey.blog.tools.ServerApiManager
@@ -61,10 +64,24 @@ class MainActivity : AppCompatActivity() {
     private val textMine by lazy {
         findViewById<TextView>(R.id.text_mine)
     }
-
+    private val icFollower by lazy {
+        findViewById<ImageView>(R.id.ic_follower)
+    }
     private val sharedPreferences by lazy {
         getSharedPreferences(SHARED_PREFERENCE_NAME, Context.MODE_PRIVATE)
     }
+    private val gson = Gson()
+
+    override fun onDestroy() {
+        super.onDestroy()
+        MessageReceiving.clearCompleteListener()
+    }
+
+    enum class Fragment {
+        HOME_PAGE, MESSAGE_LIST, MINE
+    }
+
+    var fragment = Fragment.HOME_PAGE
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -76,23 +93,25 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        MessageReceiving.setListener(object : MessageReceiving.Listener{
-            override suspend fun countComplete() {
+        CachedData.token = sharedPreferences.getString("token", null)
+
+        MessageReceiving.setCountCompleteListener(object : MessageReceiving.CountCompleteListener{
+            override suspend fun run() {
                 withContext(Dispatchers.Main) {
-                    EventBus.getDefault().post(MessageUserListFragment.MessageUpdateEvent())
+                    CachedData.token?.let { token ->
+                        messageList(token)
+                    }
                 }
             }
         })
 
-        MessageReceiving.run()
-        CachedData.token = sharedPreferences.getString("token", null)
+        CachedData.token?.let {
+            MessageReceiving.run()
+        }
 
         CachedData.token?.let { token ->
             lifecycleScope.launch {
                 userInfo(token)
-            }
-            lifecycleScope.launch {
-                messageList(token)
             }
         }
         lifecycleScope.launch {
@@ -110,6 +129,10 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        icFollower.setOnClickListener {
+            val intent = Intent(this, FollowedActivity::class.java)
+            startActivity(intent)
+        }
 
         bgHomePage.setOnClickListener {
             textTitleBar.text = getString(R.string.title_home)
@@ -119,6 +142,8 @@ class MainActivity : AppCompatActivity() {
             textHomePage.alpha = 0.8f
             textMessageList.alpha = 0.2f
             textMine.alpha = 0.2f
+            fragment = Fragment.HOME_PAGE
+            icFollower.visibility = View.GONE
             supportFragmentManager.beginTransaction().setReorderingAllowed(true).replace(
                 R.id.fragment_content, HomePageFragment::class.java, null, TAG
             ).commit()
@@ -132,6 +157,8 @@ class MainActivity : AppCompatActivity() {
             textHomePage.alpha = 0.2f
             textMessageList.alpha = 0.8f
             textMine.alpha = 0.2f
+            fragment = Fragment.MESSAGE_LIST
+            icFollower.visibility = View.VISIBLE
             supportFragmentManager.beginTransaction().setReorderingAllowed(true).replace(
                 R.id.fragment_content, MessageUserListFragment::class.java, null, TAG
             ).commit()
@@ -145,9 +172,11 @@ class MainActivity : AppCompatActivity() {
             textHomePage.alpha = 0.2f
             textMessageList.alpha = 0.2f
             textMine.alpha = 0.8f
+            fragment = Fragment.MINE
             supportFragmentManager.beginTransaction().setReorderingAllowed(true).replace(
                 R.id.fragment_content, MineFragment::class.java, null, TAG
             ).commit()
+            icFollower.visibility = View.GONE
         }
     }
 
@@ -158,6 +187,8 @@ class MainActivity : AppCompatActivity() {
                 when (commonData.code) {
                     1 -> {
                         CachedData.user = commonData.data
+                        Log.d(TAG, CachedData.user.toString())
+                        EventBus.getDefault().post(MineFragment.UserLoginEvent())
                     }
                     else -> {
                         withContext(Dispatchers.Main) {
@@ -180,13 +211,48 @@ class MainActivity : AppCompatActivity() {
         withContext(Dispatchers.IO) {
             try {
                 val commonData =
-                    ServerApiManager.apiService.messageList(token, 0).await()
+                    ServerApiManager.apiService.messageList(token, CachedData.multiUserMessageList.lastMessageId?:0).await()
                 when (commonData.code) {
                     1 -> {
-                        CachedData.multiUserMessageList.userMessageLists.clear()
-                        CachedData.multiUserMessageList.userMessageLists.addAll(commonData.data.userMessageLists)
-                        CachedData.multiUserMessageList.lastMessageId = commonData.data.lastMessageId
-                        Log.d(TAG, CachedData.multiUserMessageList.toString())
+                        CachedData.multiUserMessageList.userMessageLists.addAllByWithUserId(commonData.data.userMessageLists)
+                        commonData.data.lastMessageId?.let { lastMessageId ->
+                            CachedData.multiUserMessageList.lastMessageId = lastMessageId
+                            withContext(Dispatchers.Main) {
+                                val edit = sharedPreferences.edit()
+                                edit.putString("userMessageLists", gson.toJson(CachedData.multiUserMessageList.userMessageLists))
+                                edit.putInt("lastMessageId", lastMessageId)
+                                edit.apply()
+                                EventBus.getDefault().post(MessageUserListFragment.AdapterUpdateEvent())
+                                EventBus.getDefault().post(MessageListActivity.MessageUpdateEvent())
+                            }
+                        }
+                    }
+                    else -> {
+                        withContext(Dispatchers.Main) {
+                            Toast.makeText(this@MainActivity, "参数错误", Toast.LENGTH_SHORT).show()
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                Log.d(TAG, "request failed: ${e.message}")
+                withContext(Dispatchers.Main) {
+                    Toast.makeText(this@MainActivity, "请求异常:message", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
+    private suspend fun refreshArticleList() {
+        withContext(Dispatchers.IO) {
+            try {
+                val commonData =
+                    ServerApiManager.apiService.articleList(CachedData.token, 1, 10).await()
+                when (commonData.code) {
+                    1 -> {
+                        CachedData.articles.clear()
+                        CachedData.articles.addAll(commonData.data.items)
+                        CachedData.currentArticlePageNum = 1
+                        EventBus.getDefault().post(HomePageFragment.ArticleAdapterUpdateEvent())
                     }
                     else -> {
                         withContext(Dispatchers.Main) {
@@ -202,31 +268,31 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+}
 
-    private suspend fun refreshArticleList() {
-        withContext(Dispatchers.IO) {
-            try {
-                val commonData =
-                    ServerApiManager.apiService.articleList(CachedData.token, 1, 10).await()
-                when (commonData.code) {
-                    1 -> {
-                        CachedData.articles.clear()
-                        CachedData.articles.addAll(commonData.data.items)
-                        CachedData.currentPageNum = 1
-                        EventBus.getDefault().post(HomePageFragment.ArticleAdapterUpdateEvent())
-                    }
-                    else -> {
-                        withContext(Dispatchers.Main) {
-                            Toast.makeText(this@MainActivity, "参数错误", Toast.LENGTH_SHORT).show()
-                        }
-                    }
-                }
-            } catch (e: Exception) {
-                Log.d(TAG, "request failed: ${e.message}")
-                withContext(Dispatchers.Main) {
-                    Toast.makeText(this@MainActivity, "请求异常", Toast.LENGTH_SHORT).show()
-                }
+private fun MutableList<ServerApiManager.UserMessageList>.addAllByWithUserId(userMessageLists: MutableList<ServerApiManager.UserMessageList>) {
+    for (addUserMessageList in userMessageLists) {
+        val existingMessageList = this.find { it.withUserId  == addUserMessageList.withUserId }
+        existingMessageList?.let {
+            if(CachedData.currentUserId!=existingMessageList.withUserId) {
+                existingMessageList.newMessageCount = existingMessageList.newMessageCount?.plus(
+                    addUserMessageList.messages.size
+                ) ?: addUserMessageList.messages.size
             }
+            existingMessageList.messages.removeIf {
+                it.id == 0
+            }
+            existingMessageList.messages.addAll(addUserMessageList.messages)
+            existingMessageList.lastMessageId = addUserMessageList.lastMessageId
+        } ?: run {
+            if(CachedData.currentUserId!=addUserMessageList.withUserId) {
+                addUserMessageList.newMessageCount = addUserMessageList.messages.size
+            }
+            this.add(addUserMessageList)
+        }
+
+        this.sortByDescending {
+            it.lastMessageId
         }
     }
 }

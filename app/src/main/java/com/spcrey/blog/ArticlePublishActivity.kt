@@ -6,9 +6,12 @@ import android.content.Intent
 import android.net.Uri
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.provider.MediaStore
 import android.util.Log
 import android.view.View
+import android.widget.Button
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
@@ -28,6 +31,7 @@ import com.spcrey.blog.fragment.HomePageFragment.Companion
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.ServerApiManager
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -52,12 +56,16 @@ class ArticlePublishActivity : AppCompatActivity() {
     private val btnPublish by lazy {
         findViewById<View>(R.id.btn_publish)
     }
+    private val textPublish by lazy {
+        findViewById<TextView>(R.id.text_publish)
+    }
     private val btnAddImage by lazy {
-        findViewById<TextView>(R.id.btn_add_image)
+        findViewById<Button>(R.id.btn_add_image)
     }
     private val icBack by lazy {
         findViewById<ImageView>(R.id.ic_back)
     }
+
     private val imageUrls: MutableList<String> = mutableListOf()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -71,7 +79,8 @@ class ArticlePublishActivity : AppCompatActivity() {
         }
 
         btnAddImage.setOnClickListener {
-            galleryLauncher.launch("image/*");
+            btnAddImage.isEnabled = false
+            galleryLauncher.launch("image/*")
         }
 
         icBack.setOnClickListener {
@@ -113,7 +122,11 @@ class ArticlePublishActivity : AppCompatActivity() {
             } else {
                 CachedData.token?.let { token ->
                     lifecycleScope.launch {
+                        btnPublish.isEnabled = false
+                        textPublish.text = "发布中"
                         articleAdd(token, content)
+                        btnPublish.isEnabled = true
+                        textPublish.text = "发布"
                     }
                 }
             }
@@ -135,13 +148,15 @@ class ArticlePublishActivity : AppCompatActivity() {
             imgLastImage.layoutParams = layoutParams
             imgLastImage.alpha = 0.4f
             Glide.with(this)
-                .asBitmap()
                 .load(imageUri)
                 .transform(CenterCrop(), RoundedCorners(dpToPx(12)))
                 .into(imgLastImage)
             imageUrls.add(fileBase64)
             textImgNum.text = imageUrls.size.toString()
         }
+
+        btnAddImage.isEnabled = true
+
     }
 
     private fun Context.dpToPx(dp: Int): Int {

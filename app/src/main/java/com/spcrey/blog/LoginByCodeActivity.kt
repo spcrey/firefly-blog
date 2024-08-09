@@ -8,6 +8,7 @@ import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import android.widget.EditText
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
@@ -19,6 +20,7 @@ import androidx.lifecycle.lifecycleScope
 import com.spcrey.blog.fragment.MineFragment
 import com.spcrey.blog.tools.CachedData
 import com.spcrey.blog.tools.CodeTimer
+import com.spcrey.blog.tools.MessageReceiving
 import com.spcrey.blog.tools.ServerApiManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -46,11 +48,14 @@ class LoginByCodeActivity : AppCompatActivity() {
     private val btnLogin by lazy {
         findViewById<View>(R.id.btn_login)
     }
-    private  val textLogin by lazy {
+    private val textLogin by lazy {
         findViewById<TextView>(R.id.text_login)
     }
     private val btnLoginByPassword by lazy {
         findViewById<TextView>(R.id.btn_login_by_password)
+    }
+    private val icBack by lazy {
+        findViewById<ImageView>(R.id.ic_back)
     }
     private var phoneNumber: String? = null
     private var code: String? = null
@@ -63,6 +68,10 @@ class LoginByCodeActivity : AppCompatActivity() {
             val systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             v.setPadding(systemBars.left, systemBars.top, systemBars.right, systemBars.bottom)
             insets
+        }
+
+        icBack.setOnClickListener {
+            finish()
         }
 
         btnLoginByPassword.setOnClickListener {
@@ -104,7 +113,12 @@ class LoginByCodeActivity : AppCompatActivity() {
             phoneNumber?.let { phoneNumber ->
                 code?.let { code ->
                     lifecycleScope.launch {
+                        btnLogin.isEnabled = false
+                        textLogin.text = "登录中"
                         userLoginByCode(phoneNumber, code)
+                        btnLogin.isEnabled = true
+                        textLogin.text = "登录"
+                        MessageReceiving.run()
                     }
                 }?: run {
                     Toast.makeText(this, "验证码格式不正确", Toast.LENGTH_SHORT).show()
@@ -199,7 +213,10 @@ class LoginByCodeActivity : AppCompatActivity() {
                             edit.putString("token", commonData.data)
                             edit.apply()
                             EventBus.getDefault().post(MineFragment.UserInfoUpdateEvent())
+                            MessageReceiving.current_count = MessageReceiving.max_count
+                            MessageReceiving.run()
                             finish()
+
                         }
                     } else -> {
                         withContext(Dispatchers.Main) {

@@ -6,15 +6,10 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
-import android.widget.Toast
 import com.bumptech.glide.Glide
 import com.spcrey.blog.R
 
 class SingleImageFragment : Fragment() {
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-    }
 
     private lateinit var view: View
 
@@ -27,6 +22,9 @@ class SingleImageFragment : Fragment() {
     private val bgDown by lazy {
         view.findViewById<View>(R.id.bg_down)
     }
+    private val imageUrl by lazy {
+        requireArguments().getString("imageUrl")
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -38,7 +36,6 @@ class SingleImageFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         this.view = view
-        val imageUrl = requireArguments().getString("imageUrl")
 
         Glide.with(requireContext())
             .load(imageUrl)

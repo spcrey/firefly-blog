@@ -76,6 +76,8 @@ dependencies {
     implementation("com.github.bumptech.glide:glide:4.16.0")
     implementation("org.greenrobot:eventbus:3.3.1")
     implementation("com.aliyun.dpa:oss-android-sdk:2.5.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.3.0")
+    implementation(libs.module.jackson.module.kotlin)
     implementation(libs.androidx.activity)
     implementation(libs.androidx.lifecycle.livedata.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.ktx)

@@ -4,6 +4,8 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.EditText
+import android.widget.ImageView
+import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
@@ -34,6 +36,12 @@ class RegisterActivity : AppCompatActivity() {
     private val btnRegister by lazy{
         findViewById<View>(R.id.btn_register)
     }
+    private val textRegister by lazy{
+        findViewById<TextView>(R.id.text_register)
+    }
+    private val icBack by lazy {
+        findViewById<ImageView>(R.id.ic_back)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -45,11 +53,19 @@ class RegisterActivity : AppCompatActivity() {
             insets
         }
 
+        icBack.setOnClickListener {
+            finish()
+        }
+
         btnRegister.setOnClickListener {
             val commonData = validateEditText()
             commonData.data?.let { userRegisterForm ->
                 lifecycleScope.launch {
+                    btnRegister.isEnabled = false
+                    textRegister.text = "注册中"
                     userRegister(userRegisterForm)
+                    btnRegister.isEnabled = true
+                    textRegister.text = "注册"
                 }
             } ?: run {
                 Toast.makeText(

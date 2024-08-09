@@ -22,6 +22,10 @@ import androidx.constraintlayout.widget.ConstraintLayout
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.lifecycle.lifecycleScope
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
+import com.spcrey.blog.tools.CachedData
+import com.spcrey.blog.tools.ServerApiManager
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -62,6 +66,7 @@ class SplashActivity : AppCompatActivity() {
     private val isAgreeStatementTerm  by lazy {
         sharedPreferences.getBoolean("isAgreeStatementTerm", false)
     }
+    private val gson = Gson()
 
     private val textStatementTermContentString by lazy {
         getString(R.string.content_statement_term)
@@ -130,10 +135,30 @@ class SplashActivity : AppCompatActivity() {
 
     suspend fun runAfterSplashAnimation() {
         withContext(Dispatchers.IO) {
-            delay(1000);
+            delay(500);
             withContext(Dispatchers.Main) {
                 when(isAgreeStatementTerm) {
                     true -> {
+                        CachedData.token = sharedPreferences.getString("token", null)
+
+                        CachedData.multiUserMessageList.userMessageLists.clear()
+
+                        val string = sharedPreferences.getString("userMessageLists", null)
+
+
+                        val userMessageLists: MutableList<ServerApiManager.UserMessageList> = if (string.isNullOrEmpty()) {
+                            mutableListOf()
+                        } else {
+                            val type = object : TypeToken<MutableList<ServerApiManager.UserMessageList>>() {}.type
+                            gson.fromJson(string, type)
+                        }
+
+                        CachedData.multiUserMessageList.userMessageLists.clear()
+                        userMessageLists.removeIf {
+                            it.messages.size == 0
+                        }
+                        CachedData.multiUserMessageList.userMessageLists.addAll(userMessageLists)
+                        CachedData.multiUserMessageList.lastMessageId = sharedPreferences.getInt("lastMessageId", 0)
                         val intent = Intent(this@SplashActivity, MainActivity::class.java)
                         startActivity(intent)
                         finish()
